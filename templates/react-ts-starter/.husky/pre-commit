@@ -1,0 +1,37 @@
+# The gate is enforced here rather than remembered. A gate that only runs when someone
+# remembers to run it is a gate that eventually does not, and the failure is quiet: a
+# chained command hides its first failure behind a later success and the commit lands.
+#
+# Bypass with --no-verify only when you have decided to, never by habit.
+
+if ! pnpm std:check; then
+  echo ""
+  echo "  Commit blocked. pnpm std:check did not pass."
+  echo "  Read the detail above the verdict: exact error text, complete paths, correct counts."
+  exit 1
+fi
+
+# std:check step 1 is mutating: prettier --write, then eslint --fix. A file it reformats
+# after you staged it would be committed in its unformatted form while the working tree
+# holds the corrected one. That divergence is silent, which makes it worse than a failure,
+# so it is turned into one.
+staged_list=$(mktemp)
+git diff --cached --name-only > "$staged_list"
+
+if [ -s "$staged_list" ]; then
+  reformatted=$(git diff --name-only | grep -Fxf "$staged_list" || true)
+else
+  reformatted=""
+fi
+
+rm -f "$staged_list"
+
+if [ -n "$reformatted" ]; then
+  echo ""
+  echo "  Commit blocked. The gate reformatted files you had already staged:"
+  echo ""
+  echo "$reformatted" | sed 's/^/    /'
+  echo ""
+  echo "  The formatting is right. The staged snapshot is not. Re-stage and commit again."
+  exit 1
+fi

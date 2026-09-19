@@ -27,6 +27,10 @@ manifest.
       coverage, OS files, editor files, `storybook-static`.
 - [ ] `.env` committed with **names only, no values**.
 - [ ] `.env.local` created locally and confirmed ignored.
+- [ ] `.husky/pre-commit` present and **tracked**, not ignored. `git config core.hooksPath`
+      answers `.husky/_` after `pnpm install`, which is what the `prepare` script sets up.
+- [ ] The hook actually fires. Break something on purpose, try to commit, and confirm it is
+      refused. A hook nobody has seen refuse anything is a hook nobody knows is broken.
 - [ ] First commit is `chore: scaffold project`, and it contains only the scaffold.
 
 ---

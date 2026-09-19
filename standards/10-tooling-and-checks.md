@@ -6,10 +6,11 @@ Every project gets a single command that is the answer to "is this ready". Not a
 commands to remember, not a CI job you find out about twenty minutes later. One command, local,
 fast, and the output is designed to be read.
 
-Two things in this chapter are decisions going forward rather than descriptions of the past: the
-command is `std:check` rather than a per-project name, and the package manager is pnpm. The
-codebase this standard was reverse-engineered from is on npm with a project-specific script name.
-That is the thing being corrected, not the thing being described.
+Three things in this chapter are decisions going forward rather than descriptions of the past: the
+command is `std:check` rather than a per-project name, the package manager is pnpm, and the gate is
+enforced by a hook rather than by remembering. The codebase this standard was reverse-engineered
+from is on npm with a project-specific script name and nothing enforcing either. That is the thing
+being corrected, not the thing being described.
 
 ```bash
 pnpm std:check
@@ -28,6 +29,49 @@ It runs, in order:
 Step 0 exists because a merge conflict marker makes every other tool produce nonsense, and
 watching a linter emit forty parse errors when the real problem is one `<<<<<<<` is a waste of a
 minute and a bad mood.
+
+---
+
+## The gate is enforced, not remembered
+
+IMPORTANT: `.husky/pre-commit` runs `std:check` and blocks the commit if it fails. The template
+ships it and it is committed, so it installs for every clone through the `prepare` script.
+
+**Why this chapter changed.** It used to say only that the check script is the gate, and said
+nothing at all about hooks. Silence got read as a position: a project inferred that putting the
+gate in `std:check` meant deliberately not putting it in a hook, and recorded that as a decision.
+It was never a decision, it was an omission, and the two are indistinguishable to a reader.
+
+**Why:** a gate that runs only when someone remembers to run it is a gate that eventually does
+not, and the failure is quiet rather than loud. The specific incident: the gate, the build and the
+commit were chained into one command, `tsc` failed, the build after it succeeded, the exit code
+that got read was the last one, and the commit landed on three implicit `any` parameters. Nobody
+was being careless. The shape of the command hid the failure.
+
+**Where the gate lives and whether it can be walked past are different questions.** One command
+that answers "is this ready" is still the rule. The hook only means nothing commits without asking
+it.
+
+### The mutating step is the part people get wrong
+
+Step 1 writes: `prettier --write`, then `eslint --fix`. A hook that only checks the exit code lets
+this through:
+
+1. You stage a file.
+2. The hook runs and Prettier reformats it.
+3. The exit code is zero, so the commit proceeds.
+4. **The commit contains the unformatted version.** Your working tree holds the corrected one.
+
+Nothing failed, nothing was reported, and the two disagree. The hook therefore compares the staged
+list against what has unstaged changes after the run, and blocks with the filenames when they
+intersect. Turning a silent divergence into a loud refusal is the whole point of the second half
+of that file.
+
+### What it does not do
+
+**It does not run the tests.** `09` puts the full suite before finishing, not before every commit,
+and a hook slow enough to resent is a hook that gets bypassed by habit. `--no-verify` exists for
+the case you have actually decided on, and using it by reflex means you do not have a gate.
 
 ---
 
