@@ -1,0 +1,9 @@
+@use "../callers/variablesCaller.scss" as *;
+
+// Same shape as errorAction, one severity down: the action is allowed, it just needs looking at.
+@layer utilities {
+  .warningAction {
+    color: $color_yellow !important;
+    border-color: $color_yellow !important;
+  }
+}

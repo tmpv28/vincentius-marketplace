@@ -1,0 +1,44 @@
+.TooltipComponent {
+  width: fit-content;
+  max-width: 100%;
+
+  position: relative;
+  display: inline-flex;
+
+  &__bubble {
+    width: max-content;
+    max-width: 240px;
+
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    padding: 6px 10px;
+    pointer-events: none;
+
+    color: $color_white;
+    background-color: $color_light_black;
+    border: 1px solid $color_dark_gray;
+    border-radius: 4px;
+
+    font-family: $font_family_base;
+    font-weight: $font_weight_regular;
+    font-size: 12px;
+    line-height: 16px;
+    text-align: center;
+
+    opacity: 0;
+    transition: opacity 0.15s linear;
+  }
+
+  &:hover &__bubble {
+    opacity: 1;
+  }
+
+  //-----------
+
+  &--hidden &__bubble {
+    display: none;
+  }
+}

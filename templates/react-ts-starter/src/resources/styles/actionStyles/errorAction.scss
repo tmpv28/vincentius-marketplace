@@ -1,0 +1,15 @@
+@use "../callers/variablesCaller.scss" as *;
+
+@layer utilities {
+  .errorAction {
+    color: $color_red !important;
+    border-color: $color_red !important;
+  }
+
+  // Colour inherits, so a descendant that must keep its own palette inside an errored control
+  // opts out here instead of the container opting every child in one by one.
+  .ignoreErrorActionColors,
+  .errorAction .ignoreErrorActionColors {
+    color: $color_white !important;
+  }
+}

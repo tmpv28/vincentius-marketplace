@@ -1,0 +1,70 @@
+.DataViewerComponent {
+  width: 100%;
+
+  @include display_flex_column;
+
+  gap: 8px;
+
+  &__row {
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+
+    background-color: themeRgba(--color-light-black, 0.75);
+    border: 1px solid $color_dark_gray;
+    border-radius: 6px;
+
+    transition: border-color 0.2s linear;
+
+    &:hover {
+      border-color: themeRgba(--color-accent, 0.5);
+    }
+
+    @include tablet_portrait_down {
+      grid-template-columns: 1fr !important;
+      align-items: flex-start;
+    }
+  }
+
+  &__headCell {
+    color: $color_gray;
+
+    font-family: $font_family_base;
+    font-weight: $font_weight_medium;
+    font-size: 11px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+  }
+
+  &__cell {
+    min-width: 0;
+
+    display: flex;
+    align-items: center;
+  }
+
+  //-----------
+
+  &__row--head {
+    padding: 0 16px;
+
+    background-color: transparent;
+    border-color: transparent;
+
+    &:hover {
+      border-color: transparent;
+    }
+
+    @include tablet_portrait_down {
+      display: none;
+    }
+  }
+
+  &__cell--actions {
+    justify-content: flex-end;
+  }
+}

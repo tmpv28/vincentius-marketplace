@@ -1,0 +1,12 @@
+@use "../callers/variablesCaller.scss" as *;
+
+// The interaction states are global classes, not per-component modifiers, so a blocked button and
+// a blocked field dim by exactly the same amount. !important because a component's own base rule
+// is unlayered and would otherwise win against anything in the utilities layer.
+@layer utilities {
+  .disabledAction {
+    opacity: 0.45 !important;
+
+    cursor: not-allowed !important;
+  }
+}

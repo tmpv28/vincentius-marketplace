@@ -1,0 +1,56 @@
+.InputComponent {
+  width: 100%;
+
+  @include display_flex_column;
+
+  gap: 6px;
+
+  &__label {
+    color: $color_light_gray;
+
+    font-family: $font_family_base;
+    font-weight: $font_weight_medium;
+    font-size: 12px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  &__field {
+    width: 100%;
+
+    padding: 10px 12px;
+
+    color: $color_white;
+    background-color: themeRgba(--color-black, 0.4);
+    border: 1px solid $color_dark_gray;
+    border-radius: 4px;
+
+    font-family: $font_family_base;
+    font-weight: $font_weight_regular;
+    font-size: 14px;
+
+    transition: border-color 0.2s linear;
+    outline: none;
+
+    &::placeholder {
+      color: $color_gray;
+    }
+
+    &:focus {
+      border-color: $color_accent;
+    }
+
+    &--multiline {
+      min-height: 90px;
+
+      resize: vertical;
+    }
+  }
+
+  &__errorMsg {
+    color: $color_red;
+
+    font-size: 12px;
+    line-height: 16px;
+  }
+}

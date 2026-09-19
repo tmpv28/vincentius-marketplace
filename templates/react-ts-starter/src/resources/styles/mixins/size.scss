@@ -1,0 +1,31 @@
+@mixin responsive_max_size {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+  object-fit: cover !important;
+  object-position: center !important;
+}
+
+@mixin size_fit_content {
+  width: fit-content !important;
+  height: fit-content !important;
+}
+
+//----------
+
+@mixin width_fill_flex {
+  width: 100% !important;
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+}
+
+@mixin height_fill_flex {
+  height: 100% !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+}
+
+@mixin size_fill_available {
+  @include width_fill_flex;
+  @include height_fill_flex;
+}

@@ -1,0 +1,218 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true,
+    "jest": true
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:@typescript-eslint/recommended",
+    "airbnb",
+    "airbnb/hooks",
+    "prettier",
+    "plugin:prettier/recommended",
+    "plugin:storybook/recommended"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 12,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    },
+    "loggerFn": false
+  },
+  "plugins": [
+    "react",
+    "@typescript-eslint",
+    "prettier",
+    "storybook",
+    "unused-imports"
+  ],
+  "rules": {
+    "no-redeclare": "off",
+    "@typescript-eslint/no-redeclare": "error",
+    "semi": [
+      "error",
+      "always"
+    ],
+    "quotes": [
+      "error",
+      "double"
+    ],
+    "react/react-in-jsx-scope": "off",
+    "react/no-unescaped-entities": "off",
+    "comma-dangle": [
+      "error",
+      "never"
+    ],
+    "eqeqeq": [
+      "error",
+      "always"
+    ],
+    "no-empty": "error",
+    "no-else-return": "warn",
+    "react/jsx-filename-extension": [
+      1,
+      {
+        "extensions": [
+          ".js",
+          ".jsx",
+          ".ts",
+          ".tsx"
+        ]
+      }
+    ],
+    "max-len": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "react/jsx-props-no-spreading": "off",
+    "linebreak-style": 0,
+    "object-curly-newline": "off",
+    "no-control-regex": 0,
+    "no-plusplus": 0,
+    "radix": 0,
+    "no-unused-vars": 0,
+    "@typescript-eslint/no-unused-vars": "off",
+    "unused-imports/no-unused-imports": "error",
+    "unused-imports/no-unused-vars": [
+      "warn",
+      {
+        "vars": "all",
+        "varsIgnorePattern": "^_",
+        "args": "after-used",
+        "argsIgnorePattern": "^_"
+      }
+    ],
+    "no-bitwise": 0,
+    "react/prop-types": "off",
+    "react/jsx-wrap-multilines": [
+      "error",
+      {
+        "declaration": false,
+        "assignment": false
+      }
+    ],
+    "react/jsx-curly-newline": "off",
+    "react/function-component-definition": "off",
+    "no-restricted-exports": "off",
+    "jsx-a11y/no-autofocus": "off",
+    "react-hooks/rules-of-hooks": "off",
+    "import/no-unresolved": [
+      2,
+      {
+        "ignore": [
+          "^@/"
+        ]
+      }
+    ],
+    "import/extensions": [
+      "error",
+      "ignorePackages",
+      {
+        "js": "never",
+        "jsx": "never",
+        "ts": "never",
+        "tsx": "never"
+      }
+    ],
+    "import/no-extraneous-dependencies": [
+      "error",
+      {
+        "devDependencies": [
+          "**/vite.config.{js,ts}",
+          "**/vitest.setup.{js,ts}",
+          "**/.storybook/**",
+          "**/*.stories.tsx",
+          "**/*.stories.ts",
+          "**/*.stories.js",
+          "**/*.stories.jsx",
+          "**/*.test.{ts,tsx,js,jsx}",
+          "**/*.spec.{ts,tsx,js,jsx}",
+          "scripts/**"
+        ]
+      }
+    ],
+    "camelcase": "off",
+    "no-console": "off",
+    "import/prefer-default-export": "off",
+    "class-methods-use-this": "off",
+    "react/button-has-type": "off",
+    "react/require-default-props": "off",
+    "react/no-unstable-nested-components": "off",
+    "@typescript-eslint/no-empty-function": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "jsx-a11y/label-has-associated-control": "off",
+    "jsx-a11y/button-has-type": "off",
+    "jsx-a11y/no-static-element-interactions": "off",
+    "jsx-a11y/click-events-have-key-events": "off",
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "ForInStatement",
+        "message": "for..in loops iterate over the entire prototype chain, which is virtually never what you want. Use Object.{keys,values,entries}, and iterate over the resulting array."
+      },
+      {
+        "selector": "ForOfStatement",
+        "message": "iterators/generators require regenerator-runtime, which is too heavyweight for this guide to allow them. Separately, loops should be avoided in favor of array iterations."
+      },
+      {
+        "selector": "LabeledStatement",
+        "message": "Labels are a form of GOTO; using them makes code confusing and hard to maintain and understand."
+      },
+      {
+        "selector": "WithStatement",
+        "message": "`with` is disallowed in strict mode because it makes code impossible to predict and optimize."
+      },
+      {
+        "selector": "CallExpression[callee.name=/^hasPermissionTo(Read|Create|Update|Delete)$/] > Literal.arguments",
+        "message": "Pass PERMISSION_KEYS.x, never a bare literal, to hasPermissionTo*."
+      },
+      {
+        "selector": "CallExpression[callee.name=/^hasAnyPermissionTo(Read|Create|Update|Delete)$/] ArrayExpression.arguments Literal",
+        "message": "Pass PERMISSION_KEYS.x, never a bare literal, to hasAnyPermissionTo*."
+      },
+      {
+        "selector": "Identifier[name='LEGACY_PERMISSION_KEYS']",
+        "message": "permissionKeys.legacy.ts is deleted; use PERMISSION_KEYS."
+      }
+    ]
+  },
+  "settings": {
+    "react": {
+      "version": "detect"
+    },
+    "import/resolver": {
+      "node": {
+        "extensions": [
+          ".js",
+          ".jsx",
+          ".ts",
+          ".tsx",
+          ".json"
+        ]
+      },
+      "typescript": {
+        "project": "./tsconfig.json"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/*.js",
+        "**/*.jsx"
+      ],
+      "rules": {
+        "no-unused-vars": "off",
+        "unused-imports/no-unused-vars": "warn"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "dist",
+    "node_modules",
+    "storybook-static"
+  ]
+}

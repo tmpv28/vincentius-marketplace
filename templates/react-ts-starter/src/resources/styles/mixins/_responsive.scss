@@ -1,0 +1,31 @@
+@use "../variables/_breakpoints.scss" as *;
+
+@mixin tablet_landscape_down {
+  @media (max-width: $breakpoint-l-max) {
+    @content;
+  }
+}
+
+@mixin tablet_portrait_down {
+  @media (max-width: $breakpoint-m-max) {
+    @content;
+  }
+}
+
+@mixin small_phones_view {
+  @media (max-width: $breakpoint-xs-max) {
+    @content;
+  }
+}
+
+@mixin desktops_view {
+  @media (min-width: $breakpoint-xl-min) {
+    @content;
+  }
+}
+
+@mixin hover_capable {
+  @media (hover: hover) and (pointer: fine) {
+    @content;
+  }
+}

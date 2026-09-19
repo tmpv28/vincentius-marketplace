@@ -1,0 +1,12 @@
+@use "../callers/variablesCaller.scss" as *;
+
+// Read-only is not disabled: the value is still selectable and the control still focusable, so it
+// reads as inert rather than dimmed.
+@layer utilities {
+  .readOnlyAction {
+    background-color: themeRgba(--color-dark-gray, 0.4) !important;
+    border-color: $color_dark_gray !important;
+
+    cursor: default !important;
+  }
+}

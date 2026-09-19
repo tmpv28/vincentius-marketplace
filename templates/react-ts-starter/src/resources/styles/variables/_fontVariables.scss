@@ -1,0 +1,11 @@
+// One family. Weight is what varies, so it is carried by the weight variables rather than by
+// three aliases that all expand to the same stack.
+$font_family_base:
+  system-ui,
+  -apple-system,
+  "Segoe UI",
+  sans-serif;
+
+$font_weight_regular: 400;
+$font_weight_medium: 500;
+$font_weight_bold: 700;
