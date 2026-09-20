@@ -212,7 +212,33 @@ Settled. Do not relitigate:
 }
 ```
 
-ESLint: Airbnb + Airbnb hooks + TypeScript + Prettier, then a deliberate opt-out list.
+ESLint: flat config, in `eslint.config.js`. **Airbnb is gone and is not coming back.**
+
+`eslint-config-airbnb` has had no release in four years, `eslint-config-airbnb-typescript` was
+archived in 2025, and neither speaks flat config. ESLint 9 made flat config the default and ESLint
+10 removed the core formatting rules outright, which Airbnb sets by the dozen, so a compatibility
+shim does not rescue it either. The community flat forks that do exist are low-download packages in
+a namespace that has already had a malicious publish, which is a worse trade than the dead but
+clean config they would replace.
+
+What replaces it is what this chapter always actually named: `@eslint/js` recommended,
+`typescript-eslint` recommended, `eslint-plugin-react` recommended, `jsx-a11y` recommended,
+`eslint-plugin-prettier` last, and then the explicit list below. Most of the old rules block existed
+to switch Airbnb's opinions back off, and those lines left with it.
+
+**Two of Airbnb's rules are re-added by hand**, because a rule with a recorded exception is a rule in
+use: `no-use-before-define`, which a mutually recursive event handler documents a case against, and
+`no-param-reassign`, carrying Airbnb's own `ignorePropertyModificationsFor` list verbatim. That list
+includes `context`, which is why a Canvas 2D painting function passed before: every drawing call is a
+property write on the context, and a painting function that may not mutate it cannot paint.
+
+**The version is ESLint 9, and it is pinned there by one plugin.** ESLint 8 went end of life in
+October 2024, so staying was not an option. ESLint 10 was tried and `eslint-plugin-react@7.37.5`
+crashes on it with `contextOrFilename.getFilename is not a function`, which its peer range had
+already said by capping at 9. `jsx-a11y` and `eslint-plugin-import` cap there too. npm marks the
+ESLint 9 line as no longer supported, and that is the honest trade: a supported linter that cannot
+lint React, or an unsupported one that can. **The trigger for moving to 10 is
+`eslint-plugin-react` shipping ESLint 10 support**, not a calendar date.
 
 **Kept strict**, because these catch real bugs:
 
@@ -227,6 +253,11 @@ ESLint: Airbnb + Airbnb hooks + TypeScript + Prettier, then a deliberate opt-out
 off, and the `rules` block turns them back on set to exactly what Prettier produces. They are
 there so a file that somehow bypasses Prettier still fails the lint step, not because they catch
 anything Prettier would have left.
+
+These three are core rules that ESLint deprecated in 8.53 and removed in 10. They survive on 9 and
+they are the reason moving to 10 is a config change rather than a version bump: on 10 they either
+go, since `eslint-plugin-prettier` already reports formatting as a lint error and covers the same
+ground, or they move to `@stylistic`.
 
 **Deliberately off**, because they cost more than they catch in this codebase:
 
