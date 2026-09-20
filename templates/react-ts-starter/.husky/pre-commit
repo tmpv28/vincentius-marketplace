@@ -4,6 +4,37 @@
 #
 # Bypass with --no-verify only when you have decided to, never by habit.
 
+# std:check step 1 is mutating: prettier --write, then eslint --fix. A file it reformats
+# after you staged it would be committed in its unformatted form while the working tree
+# holds the corrected one. That divergence is silent, which makes it worse than a failure,
+# so it is turned into one.
+#
+# The comparison is before-and-after the gate, not staged-against-working-tree. The second
+# is true of any file staged in part, which is a legitimate thing to do when one commit
+# carries one reason and one file carries two, and blocking it reports a defect that is not
+# there. Only a file whose contents on disk changed while the gate ran was changed by it.
+
+staged_files=$(mktemp)
+watched_files=$(mktemp)
+hashes_before=$(mktemp)
+hashes_after=$(mktemp)
+
+cleanupHashFiles() {
+  rm -f "$staged_files" "$watched_files" "$hashes_before" "$hashes_after"
+}
+trap cleanupHashFiles EXIT
+
+# --diff-filter=d drops staged deletions, which have nothing on disk left to reformat.
+git diff --cached --name-only --diff-filter=d > "$staged_files"
+
+while IFS= read -r staged_path; do
+  [ -f "$staged_path" ] && printf '%s\n' "$staged_path"
+done < "$staged_files" > "$watched_files"
+
+if [ -s "$watched_files" ]; then
+  git hash-object --stdin-paths < "$watched_files" > "$hashes_before"
+fi
+
 if ! pnpm std:check; then
   echo ""
   echo "  Commit blocked. pnpm std:check did not pass."
@@ -11,20 +42,12 @@ if ! pnpm std:check; then
   exit 1
 fi
 
-# std:check step 1 is mutating: prettier --write, then eslint --fix. A file it reformats
-# after you staged it would be committed in its unformatted form while the working tree
-# holds the corrected one. That divergence is silent, which makes it worse than a failure,
-# so it is turned into one.
-staged_list=$(mktemp)
-git diff --cached --name-only > "$staged_list"
+reformatted=""
 
-if [ -s "$staged_list" ]; then
-  reformatted=$(git diff --name-only | grep -Fxf "$staged_list" || true)
-else
-  reformatted=""
+if [ -s "$watched_files" ]; then
+  git hash-object --stdin-paths < "$watched_files" > "$hashes_after"
+  reformatted=$(paste "$hashes_before" "$hashes_after" "$watched_files" | awk -F'\t' '$1 != $2 { print $3 }')
 fi
-
-rm -f "$staged_list"
 
 if [ -n "$reformatted" ]; then
   echo ""

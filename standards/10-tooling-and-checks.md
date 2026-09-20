@@ -62,10 +62,21 @@ this through:
 3. The exit code is zero, so the commit proceeds.
 4. **The commit contains the unformatted version.** Your working tree holds the corrected one.
 
-Nothing failed, nothing was reported, and the two disagree. The hook therefore compares the staged
-list against what has unstaged changes after the run, and blocks with the filenames when they
-intersect. Turning a silent divergence into a loud refusal is the whole point of the second half
-of that file.
+Nothing failed, nothing was reported, and the two disagree. Turning a silent divergence into a loud
+refusal is the whole point of the second half of that file.
+
+**The comparison has to be before-and-after the gate, and the obvious version is wrong.** Comparing
+the staged list against what has unstaged changes after the run looks equivalent and is not: that
+intersection is non-empty for any file staged in part, which is a legitimate and ordinary thing to
+do when one commit carries one reason and one file carries two. The first version of this hook did
+exactly that and refused a correct commit while naming a defect that did not exist, which is worse
+than the hole it was closing, because a gate that cries wolf gets `--no-verify` by habit and then
+never catches the real case.
+
+So the hook hashes each staged file on disk before the gate runs, hashes them again afterwards, and
+blocks on the ones whose contents changed while it ran. Only the gate could have changed them. Do
+this with `git hash-object --stdin-paths` over the staged list, filtered to paths that exist, and
+compare the two lists positionally.
 
 ### What it does not do
 
