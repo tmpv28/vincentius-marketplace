@@ -291,8 +291,8 @@ if (conflicts) {
 
 printStepHeader("Formatting & auto-fixing...");
 
-const prettierResult = runCommand("npx prettier --write --log-level warn . 2>&1");
-const eslintFixResult = runCommand(`npx eslint --fix "${ESLINT_GLOB}" 2>&1`);
+const prettierResult = runCommand("pnpm exec prettier --write --log-level warn . 2>&1");
+const eslintFixResult = runCommand(`pnpm exec eslint --fix "${ESLINT_GLOB}" 2>&1`);
 
 const prettierOutput = getFullOutput(prettierResult);
 const eslintFixOutput = getFullOutput(eslintFixResult);
@@ -339,7 +339,7 @@ const seenErrorLocations = extractErrorLocations(`${prettierOutput}\n${eslintFix
 console.log("\n");
 printStepHeader("Type checking...");
 
-const tscResult = runCommand("npx tsc --noEmit --skipLibCheck 2>&1");
+const tscResult = runCommand("pnpm exec tsc --noEmit --skipLibCheck 2>&1");
 const tscRawOutput = getFullOutput(tscResult);
 const tscOutput = filterTscOutput(tscRawOutput, seenErrorLocations);
 
@@ -370,7 +370,7 @@ if (!tscResult.success) {
 console.log("\n");
 printStepHeader("Lint check...");
 
-const eslintResult = runCommand(`npx eslint "${ESLINT_GLOB}" 2>&1`);
+const eslintResult = runCommand(`pnpm exec eslint "${ESLINT_GLOB}" 2>&1`);
 const eslintRaw = getFullOutput(eslintResult);
 const eslintCleaned = deduplicateAndClean(eslintRaw, allSeen);
 const eslintHasNew = hasActualIssues(eslintCleaned);

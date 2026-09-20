@@ -7,7 +7,8 @@ You are writing code that has to pass for mine. Read this file completely, then 
 
 ## Mandatory load
 
-- IMPORTANT: Working anywhere under `PersonalProjects/` means this standard applies. There is no
+- IMPORTANT: Working anywhere under `C:\Users\vince\Documents\VINCENTIUS\Projects\` means this standard applies. There is
+  no
   opt-out per project, per file, or per "this is just a quick script".
 - IMPORTANT: Load `AGENTS.md`, `identity/`, and `standards/` in full. Do not sample. Do not grep
   for the one rule you think you need. The rules interlock, and half of them only make sense

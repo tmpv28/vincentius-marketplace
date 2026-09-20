@@ -65,18 +65,38 @@ this through:
 Nothing failed, nothing was reported, and the two disagree. Turning a silent divergence into a loud
 refusal is the whole point of the second half of that file.
 
-**The comparison has to be before-and-after the gate, and the obvious version is wrong.** Comparing
-the staged list against what has unstaged changes after the run looks equivalent and is not: that
-intersection is non-empty for any file staged in part, which is a legitimate and ordinary thing to
-do when one commit carries one reason and one file carries two. The first version of this hook did
-exactly that and refused a correct commit while naming a defect that did not exist, which is worse
-than the hole it was closing, because a gate that cries wolf gets `--no-verify` by habit and then
-never catches the real case.
+**Check the staged content, not the files on disk, and the two obvious versions are both wrong.**
 
-So the hook hashes each staged file on disk before the gate runs, hashes them again afterwards, and
-blocks on the ones whose contents changed while it ran. Only the gate could have changed them. Do
-this with `git hash-object --stdin-paths` over the staged list, filtered to paths that exist, and
-compare the two lists positionally.
+The first wrong version compares the staged list against what has unstaged changes after the run.
+That intersection is non-empty for any file staged in part, which is legitimate and ordinary when
+one commit carries one reason and one file carries two. It refuses correct commits while naming a
+defect that does not exist, which is worse than the hole it closes: a gate that cries wolf gets
+`--no-verify` by habit and then never catches the real case.
+
+The second wrong version hashes each staged file on disk before the gate runs and again after, and
+blocks on the ones that changed. That one is correct about the case above and still has a hole in
+the other direction: stage an unformatted file, format the working tree without re-staging, and
+nothing on disk changes while the gate runs. The hook passes and the commit carries the unformatted
+version, which is the exact failure it exists to prevent.
+
+Both are the same mistake, which is reaching for the signal that is easy to compute rather than the
+one that answers the question. **Did the gate change this file on disk** is cheap and is not what
+you need to know. **Would the gate change what I am about to commit** is the question.
+
+So the hook runs the mutating tools against the staged content itself. Only the files whose index
+copy differs byte for byte from the working tree need checking, because everything else is
+identical to a tree the gate has just declared clean, so the cost is nothing on an ordinary commit:
+
+```javascript
+const source = stagedContent.toString("utf8");
+return (await isPrettierClean(path, source)) && (await isEslintClean(path, source));
+```
+
+Import prettier and eslint as libraries rather than shelling out. `prettier.check` with a
+`filepath` resolves the same config the gate used, and `new ESLint({ fix: true }).lintText` sets
+`output` on its report only when `--fix` would have written something. Shelling out to a package
+manager for this passes unescaped paths through a shell, and a project path containing a space is
+enough to break it.
 
 ### What it does not do
 
