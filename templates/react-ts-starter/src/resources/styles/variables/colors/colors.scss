@@ -1,5 +1,4 @@
 @use "../../functions/_themeRgba.scss" as *;
-@forward "./_colorStatics.scss";
 
 $color_black: themeRgba(--color-black);
 $color_light_black: themeRgba(--color-light-black);

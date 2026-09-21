@@ -25,7 +25,7 @@ resources/styles/
 ├── functions/
 │   └── _themeRgba.scss                    # the colour helper, forwarded by variablesCaller
 ├── variables/
-│   ├── colors/{colors.scss, _colorStatics.scss}
+│   ├── colors/{colors.scss, _colorStatics.scss}   # statics loaded once, by allStylesCaller
 │   ├── _breakpoints.scss
 │   └── _fontVariables.scss
 ├── mixins/{display,position,size,_responsive}.scss
@@ -218,6 +218,11 @@ Rules:
   components can take a colour by name.
 - CSS custom property names are `--kebab-case`. SCSS variable names are `$snake_case`. The two
   casings tell you which side of the boundary you are on.
+- `_colorStatics.scss` is **loaded once**, forwarded from `allStylesCaller.scss`, and never through
+  the injected tooling chain. It holds real CSS, the `:root` block and the utility classes, and
+  anything in the injected chain is compiled into every component stylesheet: five components,
+  five copies of the palette, one more per component. `colors.scss` holds only the `$color_x`
+  variables, which emit nothing, so injecting it costs nothing.
 
 ---
 
