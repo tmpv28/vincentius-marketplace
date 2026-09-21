@@ -283,13 +283,15 @@ const useCreateController = ({ initialLoading = false }: UseCreateControllerConf
 
 ## The type-check kernel is mine, not a library's
 
-`commons/utils/typeChecks/` is hand-written: eight one-line predicates in `isSpecificType.ts`, plus
-`isNullOrEmpty`, `isTypeValid` and `areEqual` in their own files. Four files, around 300 lines, and
+`commons/utils/typeChecks/` is hand-written: nine one-line predicates in `isSpecificType.ts`, plus
+`isNullOrEmpty` and the `areEqual` family in their own files. Three files, a few hundred lines, and
 imported by more files than anything else in the codebase.
 
-It has exactly one external dependency, and it is worth knowing why: lodash's `isNaN`, because the
-global `isNaN` coerces and `Number.isNaN` does not accept the non-numeric inputs these predicates
-have to survive.
+It has no external dependency. The codebase this standard was derived from carries a fourth file,
+`isTypeValid`, and imports lodash's `isNaN` for it. That contract is written down nowhere, so the
+template does not reconstruct it, and nothing in the kernel needs it: the one NaN check the kernel
+makes is on a date's `getTime()`, which is always a number, so `Number.isNaN` is exactly right
+there and the global `isNaN`, which coerces, never appears.
 
 This is deliberate. A dependency for `typeof val === "string"` is a dependency I have to audit,
 version, and eventually migrate off. And a library's `isEmpty` has its own opinion about what
