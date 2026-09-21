@@ -1,25 +1,5 @@
-@use "sass:string";
+@use "../../functions/_themeRgba.scss" as *;
 @forward "./_colorStatics.scss";
-
-// Function: themeRgba
-// Description: Converts a theme color variable into an rgb/rgba value at a given opacity.
-// Keeps light/dark switching a pure variable swap, since the triplet stays in the custom property.
-@function themeRgba($color, $alpha: 1) {
-  // Normalize input to just the CSS variable call, e.g. var(--color-accent)
-  $normalized: $color;
-  @if not string.index($color, "var(") {
-    $normalized: "var(#{$color})";
-  }
-
-  // Extract value inside var(...)
-  $varValue: string.slice($normalized, 5, -2); // removes "var(" and ")"
-
-  @if $alpha == 1 {
-    @return string.unquote("rgb(#{$normalized})");
-  }
-
-  @return string.unquote("rgba(#{$varValue}, #{$alpha})");
-}
 
 $color_black: themeRgba(--color-black);
 $color_light_black: themeRgba(--color-light-black);
