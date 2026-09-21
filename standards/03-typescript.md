@@ -321,7 +321,7 @@ them is legitimate the bug is silent.
 ## Compare before you write
 
 `areEqual` is a hand-rolled, recursive, **order-agnostic** deep equality that normalises dates to
-minute precision. It exists so that every write can be guarded:
+the second. It exists so that every write can be guarded:
 
 ```typescript
 if (!areEqual(treatedTheme, currentThemeInUse))
