@@ -87,6 +87,7 @@ everything else gets compared to, and it is where the conventions get proven.
 - [ ] `pnpm test:unit` green.
 - [ ] `pnpm build` succeeds.
 - [ ] `pnpm dev` starts and the branded banner prints.
-- [ ] Storybook runs, with at least one story.
+- [ ] Storybook runs. A story is written when a component has variants worth seeing side by
+      side (`04`), not to tick this box.
 - [ ] Every dependency checked for advisories, and none released in the last 7 days.
 - [ ] `pnpm-lock.yaml` committed.

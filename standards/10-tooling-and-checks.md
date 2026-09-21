@@ -328,5 +328,8 @@ pnpm test:coverage   # coverage
 pnpm storybook       # component workshop
 ```
 
+A project that declines one of these tools drops its command with it. A script that exists and
+fails teaches people to stop running the list.
+
 When a project accumulates more than a handful of repeated shell incantations, they go into a
 `Makefile` or `justfile`. Not into a README the next person has to read.
