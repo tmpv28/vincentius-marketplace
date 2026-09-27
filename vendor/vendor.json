@@ -1,0 +1,265 @@
+{
+  "impeccable": {
+    "kind": "skill",
+    "upstream": "https://github.com/pbakaus/impeccable",
+    "paths": {
+      "plugin/skills/impeccable": "skill",
+      "plugin/agents": "agents"
+    },
+    "install": {
+      "skill": "skills/impeccable",
+      "agents": "agents"
+    },
+    "pinned": {
+      "ref": "skill-v4.3.1",
+      "sha": "cd12f8660e2dde57b9615c8a6b8ea674101f9cfc",
+      "date": "2026-09-09"
+    },
+    "license": "Apache-2.0",
+    "licenseFiles": [
+      "LICENSE",
+      "NOTICE.md"
+    ],
+    "patches": [
+      "001-pnpm-consent-no-sandbox-evasion.patch"
+    ],
+    "invocation": "auto",
+    "notes": "Setup runs the engine every session; the engine is its own entry. Upstream hooks are not vendored; turn them on per project with /impeccable hooks on.",
+    "reviewed": "2026-09-27"
+  },
+  "impeccable-engine": {
+    "kind": "binary",
+    "upstream": "https://github.com/pbakaus/impeccable/releases/tag/engine-v0.1.5",
+    "pinned": {
+      "ref": "engine-v0.1.5",
+      "date": "2026-09-08"
+    },
+    "asset": "impeccable-windows-x64.exe",
+    "sha256": "477e544fc8880a5e82e427490cb9a5f5adab480c0e02966d33fd50772b531c71",
+    "signer": "CN=\"Renaissance Geek, Inc.\" via Microsoft ID Verified CS EOC CA 03; Authenticode Valid; matches the publisher asserted by upstream .github/workflows/release-engine.yml",
+    "license": "Apache-2.0",
+    "install": {
+      "path": "~/.impeccable/bin/engine-v0.1.5/impeccable-windows-x64.exe",
+      "env": "IMPECCABLE_BIN"
+    },
+    "notes": "No build attestation (issue #813). Verified by Authenticode signature and the release sha256 at download; both recorded here.",
+    "reviewed": "2026-09-27"
+  },
+  "emil-design-eng": {
+    "kind": "skill",
+    "upstream": "https://github.com/emilkowalski/skills",
+    "paths": {
+      "skills/emil-design-eng": "skill"
+    },
+    "install": {
+      "skill": "skills/emil-design-eng"
+    },
+    "pinned": {
+      "ref": "main",
+      "sha": "85e8e2363b713506e1d5b6e07a0eb2da66be1bc3",
+      "date": "2026-09-15"
+    },
+    "license": "MIT",
+    "licenseFiles": [
+      "LICENSE"
+    ],
+    "patches": [
+      "001-description-use-when.patch"
+    ],
+    "invocation": "auto",
+    "reviewed": "2026-09-27"
+  },
+  "review-animations": {
+    "kind": "skill",
+    "upstream": "https://github.com/emilkowalski/skills",
+    "paths": {
+      "skills/review-animations": "skill"
+    },
+    "install": {
+      "skill": "skills/review-animations"
+    },
+    "pinned": {
+      "ref": "main",
+      "sha": "85e8e2363b713506e1d5b6e07a0eb2da66be1bc3",
+      "date": "2026-09-15"
+    },
+    "license": "MIT",
+    "licenseFiles": [
+      "LICENSE"
+    ],
+    "patches": [],
+    "invocation": "manual",
+    "reviewed": "2026-09-27"
+  },
+  "apple-design": {
+    "kind": "skill",
+    "upstream": "https://github.com/emilkowalski/skills",
+    "paths": {
+      "skills/apple-design": "skill"
+    },
+    "install": {
+      "skill": "skills/apple-design"
+    },
+    "pinned": {
+      "ref": "main",
+      "sha": "85e8e2363b713506e1d5b6e07a0eb2da66be1bc3",
+      "date": "2026-09-15"
+    },
+    "license": "MIT",
+    "licenseFiles": [
+      "LICENSE"
+    ],
+    "patches": [
+      "001-manual-only.patch"
+    ],
+    "invocation": "manual",
+    "reviewed": "2026-09-27"
+  },
+  "systematic-debugging": {
+    "kind": "skill",
+    "upstream": "https://github.com/obra/superpowers",
+    "paths": {
+      "skills/systematic-debugging": "skill"
+    },
+    "install": {
+      "skill": "skills/systematic-debugging"
+    },
+    "pinned": {
+      "ref": "v6.4.1",
+      "sha": "5bf4e78011075bcfc0dc295f0724994cd123ee71",
+      "date": "2026-09-19"
+    },
+    "license": "MIT",
+    "licenseFiles": [
+      "LICENSE"
+    ],
+    "patches": [
+      "001-tv-references.patch"
+    ],
+    "invocation": "auto",
+    "reviewed": "2026-09-27",
+    "exclude": [
+      "test-pressure-1.md",
+      "test-pressure-2.md",
+      "test-pressure-3.md",
+      "test-academic.md",
+      "CREATION-LOG.md"
+    ],
+    "notes": "Eval prompts and the creation log are excluded from the install; they are inert but read like instructions."
+  },
+  "grilling": {
+    "kind": "skill",
+    "upstream": "https://github.com/mattpocock/skills",
+    "paths": {
+      "skills/productivity/grilling": "skill"
+    },
+    "install": {
+      "skill": "skills/grilling"
+    },
+    "pinned": {
+      "ref": "main",
+      "sha": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "date": "2026-09-18"
+    },
+    "license": "MIT",
+    "licenseFiles": [
+      "LICENSE"
+    ],
+    "patches": [
+      "001-manual-only.patch"
+    ],
+    "invocation": "manual",
+    "reviewed": "2026-09-27"
+  },
+  "swiftui-expert-skill": {
+    "kind": "skill",
+    "upstream": "https://github.com/AvdLee/SwiftUI-Agent-Skill",
+    "paths": {
+      "skills/swiftui-expert-skill": "skill"
+    },
+    "install": {
+      "skill": "skills/swiftui-expert-skill"
+    },
+    "pinned": {
+      "ref": "5.1.0",
+      "sha": "b24e68a965dc4b5bd2cc41dc60c094a26a9379ce",
+      "date": "2026-09-18"
+    },
+    "license": "MIT",
+    "licenseFiles": [
+      "LICENSE"
+    ],
+    "patches": [
+      "001-claude-skill-dir.patch"
+    ],
+    "invocation": "auto",
+    "notes": "Its xctrace scripts run on macOS only; on Windows the skill reviews and writes SwiftUI.",
+    "reviewed": "2026-09-27"
+  },
+  "vercel-react-best-practices": {
+    "kind": "skill",
+    "upstream": "https://github.com/vercel-labs/agent-skills",
+    "paths": {
+      "skills/react-best-practices": "skill"
+    },
+    "install": {
+      "skill": "skills/vercel-react-best-practices"
+    },
+    "pinned": {
+      "ref": "main",
+      "sha": "063bee94c3f4df8453406c830b0a7df0f2860278",
+      "date": "2026-08-28"
+    },
+    "license": "MIT (declared in SKILL.md frontmatter; the repository has no LICENSE file)",
+    "licenseFiles": [],
+    "patches": [
+      "001-pnpm-dlx.patch"
+    ],
+    "invocation": "auto",
+    "notes": "Mostly Next.js and server-component rules; the react and typescript packs win where they differ.",
+    "reviewed": "2026-09-27"
+  },
+  "design-taste-frontend": {
+    "kind": "skill",
+    "upstream": "https://github.com/Leonxlnx/taste-skill",
+    "paths": {
+      "skills/taste-skill": "skill"
+    },
+    "install": {
+      "skill": "skills/design-taste-frontend"
+    },
+    "pinned": {
+      "ref": "main",
+      "sha": "5217fb45be2c0b302f29c9cd31cbd3237501c684",
+      "date": "2026-09-20"
+    },
+    "license": "MIT",
+    "licenseFiles": [
+      "LICENSE"
+    ],
+    "patches": [
+      "001-manual-only.patch",
+      "002-pnpm-and-tv-precedence.patch"
+    ],
+    "invocation": "manual",
+    "notes": "Its Tailwind and shadcn defaults contradict the styles and scss packs, so it only runs when typed.",
+    "reviewed": "2026-09-27"
+  },
+  "chrome-devtools-mcp": {
+    "kind": "npm-mcp",
+    "upstream": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+    "package": "chrome-devtools-mcp",
+    "pinned": {
+      "version": "1.9.0",
+      "date": "2026-09-08"
+    },
+    "license": "Apache-2.0",
+    "install": {
+      "command": "claude mcp add chrome-devtools --scope user -- cmd /c pnpm dlx chrome-devtools-mcp@1.9.0 --isolated --no-usage-statistics --no-performance-crux",
+      "env": {
+        "CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS": "1"
+      }
+    },
+    "reviewed": "2026-09-27"
+  }
+}

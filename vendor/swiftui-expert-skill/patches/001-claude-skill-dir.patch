@@ -1,0 +1,154 @@
+diff --git a/a/skill/SKILL.md b/b/skill/SKILL.md
+index c460495..fbb3056 100644
+--- a/a/skill/SKILL.md
++++ b/b/skill/SKILL.md
+@@ -47,12 +47,12 @@ Trigger when the user asks to "record a trace", "profile the app", "capture a se
+ 
+ 1. **Confirm target** — attach to a running app, launch an app, or record all processes? If the user didn't say, ask. List connected devices when useful:
+    ```bash
+-   python3 "${SKILL_DIR}/scripts/record_trace.py" --list-devices
++   python3 "${CLAUDE_SKILL_DIR}/scripts/record_trace.py" --list-devices
+    ```
+ 2. **Pick a template based on target kind** — the `SwiftUI` template populates the SwiftUI lane on any **real device**: a physical iOS/iPadOS device **or the host Mac**. The only exception is the **iOS Simulator**, where the SwiftUI lane comes back empty — switch to `--template "Time Profiler"` in that case (still gives Time Profiler + Hangs + Animation Hitches). Always check `--list-devices`: `simulators` kind → `Time Profiler`; `devices` kind (real devices and the host Mac) → default `SwiftUI`. Full decision table in `references/trace-recording.md`.
+ 3. **Start the recording**. For agent-driven sessions where the user says "I'll tell you when I'm done", start in the background and use a stop-file:
+    ```bash
+-   python3 "${SKILL_DIR}/scripts/record_trace.py" \
++   python3 "${CLAUDE_SKILL_DIR}/scripts/record_trace.py" \
+        --device "<name|udid>" --attach "<AppName>" \
+        --stop-file /tmp/stop-trace --output ~/Desktop/session.trace
+    ```
+@@ -71,16 +71,16 @@ Full reference: `references/trace-analysis.md`. Summary of the composition patte
+ 2. **Resolve a window (only if the user scoped).** The parser exposes two discovery modes:
+    ```bash
+    # Find a log that marks the start/end of the region of interest:
+-   python3 "${SKILL_DIR}/scripts/analyze_trace.py" --trace <path> \
++   python3 "${CLAUDE_SKILL_DIR}/scripts/analyze_trace.py" --trace <path> \
+        --list-logs --log-message-contains "loaded feed" --log-limit 5
+    # Or list os_signpost intervals (paired begin/end), filterable by name:
+-   python3 "${SKILL_DIR}/scripts/analyze_trace.py" --trace <path> \
++   python3 "${CLAUDE_SKILL_DIR}/scripts/analyze_trace.py" --trace <path> \
+        --list-signposts --signpost-name-contains "ImageDecode"
+    ```
+    Both modes accept `--window START_MS:END_MS` to scope discovery. Pick the `time_ms` (for logs) or `start_ms`/`end_ms` (for signposts) that match the user's description. Build a window like `--window 10400:11700`.
+ 3. **Run the main analysis** (with or without `--window`):
+    ```bash
+-   python3 "${SKILL_DIR}/scripts/analyze_trace.py" --trace <path> \
++   python3 "${CLAUDE_SKILL_DIR}/scripts/analyze_trace.py" --trace <path> \
+        --json-only --top 10 [--window START_MS:END_MS]
+    ```
+ 4. **Interpret with `references/trace-analysis.md`** — key diagnostics:
+diff --git a/a/skill/references/trace-analysis.md b/b/skill/references/trace-analysis.md
+index 98f279f..aed6285 100644
+--- a/a/skill/references/trace-analysis.md
++++ b/b/skill/references/trace-analysis.md
+@@ -33,7 +33,7 @@ Python 3 stdlib + `xctrace` (ships with Xcode at `/usr/bin/xctrace`).
+ ### 1. Full analysis (default)
+ 
+ ```bash
+-python3 "${SKILL_DIR}/scripts/analyze_trace.py" \
++python3 "${CLAUDE_SKILL_DIR}/scripts/analyze_trace.py" \
+   --trace "/path/to/file.trace" \
+   --top 10 --top-hitches 5 \
+   [--window START_MS:END_MS] \
+@@ -54,7 +54,7 @@ python3 "${SKILL_DIR}/scripts/analyze_trace.py" \
+ ### 2. `--list-logs` — find os_log timestamps
+ 
+ ```bash
+-python3 "${SKILL_DIR}/scripts/analyze_trace.py" --trace <path> --list-logs \
++python3 "${CLAUDE_SKILL_DIR}/scripts/analyze_trace.py" --trace <path> --list-logs \
+   [--log-subsystem com.myapp.net] \
+   [--log-category "Network"] \
+   [--log-type Fault] \
+@@ -71,7 +71,7 @@ AND-combined; `--log-message-contains` is case-insensitive substring match.
+ ### 3. `--list-signposts` — find signpost intervals
+ 
+ ```bash
+-python3 "${SKILL_DIR}/scripts/analyze_trace.py" --trace <path> --list-signposts \
++python3 "${CLAUDE_SKILL_DIR}/scripts/analyze_trace.py" --trace <path> --list-signposts \
+   [--signpost-name-contains "ImageDecode"] \
+   [--signpost-subsystem com.myapp.feed] \
+   [--signpost-category "Rendering"] \
+@@ -88,7 +88,7 @@ match.
+ ### 4. `--fanin-for` — who keeps invalidating this view?
+ 
+ ```bash
+-python3 "${SKILL_DIR}/scripts/analyze_trace.py" --trace <path> \
++python3 "${CLAUDE_SKILL_DIR}/scripts/analyze_trace.py" --trace <path> \
+   --fanin-for "TextStyleModifier" \
+   [--window START_MS:END_MS] \
+   [--top 10]
+diff --git a/a/skill/references/trace-recording.md b/b/skill/references/trace-recording.md
+index fcfdd1d..b985d31 100644
+--- a/a/skill/references/trace-recording.md
++++ b/b/skill/references/trace-recording.md
+@@ -31,7 +31,7 @@ local process-inspection tools may still expose process arguments.
+ ### A) Attach to a running app on a connected device
+ 
+ ```bash
+-python3 "${SKILL_DIR}/scripts/record_trace.py" \
++python3 "${CLAUDE_SKILL_DIR}/scripts/record_trace.py" \
+   --device "Pol's iPhone" \
+   --attach "Helm" \
+   --output ~/Desktop/helm-session.trace
+@@ -42,7 +42,7 @@ Leave it running while the user exercises the app. Stop with **Ctrl+C**.
+ ### B) Launch an app and record from the first frame
+ 
+ ```bash
+-python3 "${SKILL_DIR}/scripts/record_trace.py" \
++python3 "${CLAUDE_SKILL_DIR}/scripts/record_trace.py" \
+   --device "<UDID>" \
+   --launch "/path/to/App.app" \
+   --output ~/Desktop/launch.trace
+@@ -58,7 +58,7 @@ recording to end cleanly:
+ 
+ ```bash
+ # Start recording (background)
+-python3 "${SKILL_DIR}/scripts/record_trace.py" \
++python3 "${CLAUDE_SKILL_DIR}/scripts/record_trace.py" \
+   --attach Helm --stop-file /tmp/stop-trace \
+   --output ~/Desktop/session.trace
+ 
+@@ -74,7 +74,7 @@ when it appears, and waits up to 60s for the trace to finalise.
+ ### D) Time-boxed recording
+ 
+ ```bash
+-python3 "${SKILL_DIR}/scripts/record_trace.py" \
++python3 "${CLAUDE_SKILL_DIR}/scripts/record_trace.py" \
+   --attach Helm --time-limit 30s --output ~/Desktop/30s.trace
+ ```
+ 
+@@ -84,10 +84,10 @@ xctrace stops itself at the limit.
+ 
+ ```bash
+ # List every connected device, simulator, and the host — JSON.
+-python3 "${SKILL_DIR}/scripts/record_trace.py" --list-devices
++python3 "${CLAUDE_SKILL_DIR}/scripts/record_trace.py" --list-devices
+ 
+ # List all Instruments templates — JSON with a flat list + by-section map.
+-python3 "${SKILL_DIR}/scripts/record_trace.py" --list-templates
++python3 "${CLAUDE_SKILL_DIR}/scripts/record_trace.py" --list-templates
+ ```
+ 
+ Device entries have `kind` (`devices`, `devices offline`, `simulators`),
+@@ -124,7 +124,7 @@ For ad-hoc hang hunting on any target, `Time Profiler` or
+ For an explicitly approved system-wide recording:
+ 
+ ```bash
+-python3 "${SKILL_DIR}/scripts/record_trace.py" \
++python3 "${CLAUDE_SKILL_DIR}/scripts/record_trace.py" \
+   --all-processes --allow-system-wide-recording \
+   --time-limit 30s --output ~/Desktop/system-wide.trace
+ ```
+@@ -135,10 +135,10 @@ The recording script prints `trace written: <path>` on exit. Feed that
+ path straight into `analyze_trace.py`:
+ 
+ ```bash
+-TRACE=$(python3 "${SKILL_DIR}/scripts/record_trace.py" \
++TRACE=$(python3 "${CLAUDE_SKILL_DIR}/scripts/record_trace.py" \
+     --attach Helm --stop-file /tmp/stop-trace --output ~/Desktop/session.trace \
+     2>&1 | awk '/trace written:/ {print $NF}')
+-python3 "${SKILL_DIR}/scripts/analyze_trace.py" --trace "$TRACE" --json-only
++python3 "${CLAUDE_SKILL_DIR}/scripts/analyze_trace.py" --trace "$TRACE" --json-only
+ ```
+ 
+ If the user wanted a specific scope, combine with `--list-logs` /

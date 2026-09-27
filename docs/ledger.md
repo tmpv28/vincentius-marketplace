@@ -16,7 +16,7 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
 | 1 | Local clean-up | done | n/a (machine config) | see Phase 1 notes |
 | 2 | Create the repo | done | see git log, tag hold/phase-2 | TV history under standard/ (10 commits); hooks + 85 unit tests moved in |
 | 3 | Split the standard | done | tag hold/phase-3 | core 12.9k tok; typescript 5.4k; react 13.1k; accessibility 0.6k; styles 1.4k; scss 1.4k; testing 1.8k; node-tooling 2.8k (chars/4). 175 sections, 2440 lines verified verbatim |
-| 4 | Vendor everything | pending | | |
+| 4 | Vendor everything | done | tag hold/phase-4 | 9 skills vendored at confirmed pins, 9 patches, engine verified; vendor-check live |
 | 5 | Build the tooling | pending | | |
 | 6 | Review until clean | pending | | |
 | 7 | Test everything | pending | | |
@@ -64,6 +64,19 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
   CLAUDE.md (ESLint line, four-file contexts, classNames object, staircase as preference, real paths,
   test:unit); template std:check gained the em-dash gate (D7); `.impeccable/` ignored.
 - Checklists moved into `kit/skills/tv-pre-pr/` and `kit/skills/tv-new-project/` with history.
+
+## Phase 4 notes
+
+- Pins confirmed on GitHub, all dated on or before 2026-09-20; no published advisories reach any pin.
+- Engine engine-v0.1.5: sha256 477e544f...b531c71 matches the release; Authenticode Valid, signer "Renaissance Geek, Inc.",
+  the publisher that upstream release-engine.yml enforces. Installed at ~/.impeccable/bin/engine-v0.1.5/, IMPECCABLE_BIN set,
+  so the launcher never downloads. It reports version 4.0.0 (the CLI version string); T-X1 confirms it works.
+- Security read found and patched: impeccable (unpinned npx, "do not ask permission", sandbox-evasion advice,
+  CLAUDE_PLUGIN_ROOT in agents); taste (npm/yarn/@latest, forced image tool, TV precedence note); vercel (npx svgo);
+  swiftui (SKILL_DIR is not a Claude Code variable). systematic-debugging eval prompts excluded from installs.
+- Kept impeccable at the tagged skill-v4.3.1 although untagged 0a4e72a (2026-09-15) is eligible: it changes
+  live-browser.js and has not been read. First item for the monthly check.
+- vendor-check fixed twice while writing: same-day commits compared by timestamp; releases and advisories by version.
 
 ## Corrections
 

@@ -1,0 +1,57 @@
+diff --git a/a/skill/SKILL.md b/b/skill/SKILL.md
+index 095d194..9af202c 100644
+--- a/a/skill/SKILL.md
++++ b/b/skill/SKILL.md
+@@ -174,7 +174,7 @@ You MUST complete each phase before proceeding to the next.
+    - Automated test if possible
+    - One-off test script if no framework
+    - MUST have before fixing
+-   - Use the `superpowers:test-driven-development` skill for writing proper failing tests
++   - Write the failing test first, as TV 09 requires: a bug fix starts with a test that reproduces it
+ 
+ 2. **Implement Single Fix**
+    - Address the root cause identified
+@@ -186,7 +186,7 @@ You MUST complete each phase before proceeding to the next.
+    - Test passes now?
+    - No other tests broken?
+    - Issue actually resolved?
+-   - Use the `superpowers:verification-before-completion` skill before claiming success
++   - Run the project's gate (`pnpm std:check` where it exists) and the relevant tests before claiming success
+ 
+ 4. **If Fix Doesn't Work**
+    - STOP
+diff --git a/a/skill/find-polluter.sh b/b/skill/find-polluter.sh
+index 985f5d0..e83b660 100644
+--- a/a/skill/find-polluter.sh
++++ b/b/skill/find-polluter.sh
+@@ -48,7 +48,7 @@ for TEST_FILE in $TEST_FILES; do
+   echo "[$COUNT/$TOTAL] Testing: $TEST_FILE"
+ 
+   # Run the test
+-  npm test "$TEST_FILE" > /dev/null 2>&1 || true
++  pnpm test "$TEST_FILE" > /dev/null 2>&1 || true
+ 
+   # Check if pollution appeared
+   if [ -e "$POLLUTION_CHECK" ]; then
+@@ -61,7 +61,7 @@ for TEST_FILE in $TEST_FILES; do
+     ls -la "$POLLUTION_CHECK"
+     echo ""
+     echo "To investigate:"
+-    echo "  npm test $TEST_FILE    # Run just this test"
++    echo "  pnpm test $TEST_FILE    # Run just this test"
+     echo "  cat $TEST_FILE         # Review test code"
+     exit 1
+   fi
+diff --git a/a/skill/root-cause-tracing.md b/b/skill/root-cause-tracing.md
+index 0e72e8f..b06b29c 100644
+--- a/a/skill/root-cause-tracing.md
++++ b/b/skill/root-cause-tracing.md
+@@ -86,7 +86,7 @@ async function gitInit(directory: string) {
+ 
+ **Run and capture:**
+ ```bash
+-npm test 2>&1 | grep 'DEBUG git init'
++pnpm test 2>&1 | grep 'DEBUG git init'
+ ```
+ 
+ **Analyze stack traces:**

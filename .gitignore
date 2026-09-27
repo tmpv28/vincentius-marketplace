@@ -9,3 +9,4 @@ tests/.tmp/
 Thumbs.db
 .vscode/
 .idea/
+vendor/*/.work/

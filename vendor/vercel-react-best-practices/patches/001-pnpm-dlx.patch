@@ -1,0 +1,24 @@
+diff --git a/a/skill/AGENTS.md b/b/skill/AGENTS.md
+index 4e340a5..7fc08bf 100644
+--- a/a/skill/AGENTS.md
++++ b/b/skill/AGENTS.md
+@@ -2474,7 +2474,7 @@ Reduce SVG coordinate precision to decrease file size. The optimal precision dep
+ **Automate with SVGO:**
+ 
+ ```bash
+-npx svgo --precision=1 --multipass icon.svg
++pnpm dlx svgo --precision=1 --multipass icon.svg
+ ```
+ 
+ ### 6.5 Prevent Hydration Mismatch Without Flickering
+diff --git a/a/skill/rules/rendering-svg-precision.md b/b/skill/rules/rendering-svg-precision.md
+index 6d77128..f1c4ff4 100644
+--- a/a/skill/rules/rendering-svg-precision.md
++++ b/b/skill/rules/rendering-svg-precision.md
+@@ -24,5 +24,5 @@ Reduce SVG coordinate precision to decrease file size. The optimal precision dep
+ **Automate with SVGO:**
+ 
+ ```bash
+-npx svgo --precision=1 --multipass icon.svg
++pnpm dlx svgo --precision=1 --multipass icon.svg
+ ```

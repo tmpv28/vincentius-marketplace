@@ -1,0 +1,12 @@
+diff --git a/a/skill/SKILL.md b/b/skill/SKILL.md
+index 62ce902..e68ab13 100644
+--- a/a/skill/SKILL.md
++++ b/b/skill/SKILL.md
+@@ -1,6 +1,6 @@
+ ---
+ name: emil-design-eng
+-description: This skill encodes Emil Kowalski's philosophy on UI polish, component design, animation decisions, and the invisible details that make software feel great.
++description: Use when designing, building or reviewing UI polish, motion and animation, transitions, micro-interactions, easing and timing, component feel, or the invisible details that make an interface feel great. Encodes Emil Kowalski's design-engineering philosophy.
+ ---
+ 
+ # Design Engineering

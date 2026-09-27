@@ -1,0 +1,12 @@
+diff --git a/a/skill/SKILL.md b/b/skill/SKILL.md
+index 8ca78c6..894c0ac 100644
+--- a/a/skill/SKILL.md
++++ b/b/skill/SKILL.md
+@@ -1,6 +1,7 @@
+ ---
+ name: grilling
+ description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
++disable-model-invocation: true
+ ---
+ 
+ Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
