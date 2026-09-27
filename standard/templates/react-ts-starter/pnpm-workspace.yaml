@@ -1,0 +1,8 @@
+# Denied rather than allowed: the gate, the suite and the production build all pass without
+# these postinstall scripts, because each package resolves its binary from a platform optional
+# dependency instead. pnpm 9 ran them implicitly; pnpm 12 asks. Flip one to true only if a
+# platform turns up with no prebuilt binary for it.
+allowBuilds:
+  "@parcel/watcher": false
+  esbuild: false
+  unrs-resolver: false

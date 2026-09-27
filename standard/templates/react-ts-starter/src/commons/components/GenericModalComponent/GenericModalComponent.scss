@@ -1,0 +1,52 @@
+.GenericModalComponent {
+  &__content {
+    width: 100%;
+
+    @include display_flex_column;
+
+    gap: 20px;
+  }
+
+  &__header {
+    @include display_flex_column;
+
+    gap: 4px;
+  }
+
+  &__title {
+    color: $color_white;
+  }
+
+  &__subtitle {
+    color: $color_gray;
+  }
+
+  &__body {
+    width: 100%;
+
+    @include display_flex_column;
+
+    gap: 16px;
+  }
+
+  &__footer {
+    width: 100%;
+
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 8px;
+
+    border-top: 1px solid $color_dark_gray;
+  }
+
+  //-----------
+
+  // The UI library injects its own surface colours; these have to win, which is the visible cost
+  // of keeping the library behind a single wrapper.
+  .mantine-Modal-content,
+  .mantine-Modal-header {
+    color: $color_white !important;
+    background-color: $color_light_black !important;
+  }
+}

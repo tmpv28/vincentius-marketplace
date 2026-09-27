@@ -1,0 +1,25 @@
+@use "./callers/variablesCaller.scss" as *;
+@use "./callers/mixinsCaller.scss" as *;
+
+@layer utilities {
+  .cursor_pointer {
+    cursor: pointer !important;
+  }
+  .cursor_default {
+    cursor: default !important;
+  }
+
+  .width_100 {
+    width: 100% !important;
+  }
+  .height_100 {
+    height: 100% !important;
+  }
+}
+
+.borderLine {
+  width: 100%;
+  height: 1px;
+
+  background-color: $color_dark_gray;
+}

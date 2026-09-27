@@ -1,0 +1,11 @@
+@mixin position_absolute_with_default_location {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+}
+
+@mixin position_fixed_with_default_location {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+}

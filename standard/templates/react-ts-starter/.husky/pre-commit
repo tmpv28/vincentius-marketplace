@@ -1,0 +1,20 @@
+# The gate is enforced here rather than remembered. A gate that only runs when someone
+# remembers to run it is a gate that eventually does not, and the failure is quiet: a
+# chained command hides its first failure behind a later success and the commit lands.
+#
+# Bypass with --no-verify only when you have decided to, never by habit.
+
+if ! pnpm std:check; then
+  echo ""
+  echo "  Commit blocked. pnpm std:check did not pass."
+  echo "  Read the detail above the verdict: exact error text, complete paths, correct counts."
+  exit 1
+fi
+
+# std:check step 1 is mutating, and it writes to the working tree while git commits the index.
+# The script below checks the staged content itself rather than the files on disk, because the
+# working tree being clean says nothing about what is about to be committed. Its header explains
+# why the obvious comparison is the wrong one.
+if ! node scripts/checkStagedSnapshot.js; then
+  exit 1
+fi

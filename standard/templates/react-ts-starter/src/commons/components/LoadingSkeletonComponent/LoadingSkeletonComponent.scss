@@ -1,0 +1,35 @@
+.LoadingSkeletonComponent {
+  width: 100%;
+
+  @include display_flex_column;
+
+  gap: 10px;
+
+  &__row {
+    width: 100%;
+    height: 52px;
+
+    display: block;
+
+    background: linear-gradient(
+      90deg,
+      themeRgba(--color-dark-gray, 0.5) 25%,
+      themeRgba(--color-gray, 0.35) 50%,
+      themeRgba(--color-dark-gray, 0.5) 75%
+    );
+    background-size: 200% 100%;
+    border-radius: 6px;
+
+    animation: loading-skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes loading-skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}

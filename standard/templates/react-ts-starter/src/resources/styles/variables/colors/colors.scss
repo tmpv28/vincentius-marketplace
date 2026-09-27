@@ -1,0 +1,13 @@
+@use "../../functions/_themeRgba.scss" as *;
+
+$color_black: themeRgba(--color-black);
+$color_light_black: themeRgba(--color-light-black);
+$color_dark_gray: themeRgba(--color-dark-gray);
+$color_gray: themeRgba(--color-gray);
+$color_light_gray: themeRgba(--color-light-gray);
+$color_white: themeRgba(--color-white);
+$color_accent: themeRgba(--color-accent);
+$color_dark_accent: themeRgba(--color-dark-accent);
+$color_green: themeRgba(--color-green);
+$color_yellow: themeRgba(--color-yellow);
+$color_red: themeRgba(--color-red);

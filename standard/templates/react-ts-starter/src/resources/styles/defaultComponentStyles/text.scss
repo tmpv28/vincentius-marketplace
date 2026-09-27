@@ -1,0 +1,26 @@
+@use "../callers/variablesCaller.scss" as *;
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: $font_family_base;
+  font-weight: $font_weight_bold;
+}
+
+h1 {
+  font-size: 24px;
+  line-height: 32px;
+}
+
+h2 {
+  font-size: 18px;
+  line-height: 24px;
+}
+
+p,
+span,
+label {
+  font-size: 14px;
+  line-height: 20px;
+}

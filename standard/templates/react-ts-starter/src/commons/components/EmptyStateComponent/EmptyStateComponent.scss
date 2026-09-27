@@ -1,0 +1,29 @@
+.EmptyStateComponent {
+  width: 100%;
+  min-height: 160px;
+
+  @include display_flex_column_all_center;
+
+  gap: 12px;
+  padding: 24px;
+
+  background-color: themeRgba(--color-light-black, 0.5);
+  border: 1px dashed $color_dark_gray;
+  border-radius: 6px;
+
+  &__icon {
+    @include display_flex_row_all_center;
+
+    width: 32px;
+    height: 32px;
+
+    color: $color_gray;
+  }
+
+  &__message {
+    color: $color_gray;
+
+    font-size: 14px;
+    text-align: center;
+  }
+}

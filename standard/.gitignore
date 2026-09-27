@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+storybook-static/
+
+.env.local
+.env.*.local
+
+.claude/settings.local.json
+
+.DS_Store
+Thumbs.db

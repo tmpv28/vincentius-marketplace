@@ -1,0 +1,42 @@
+.ManageNotesFeature {
+  width: 100%;
+
+  @include display_flex_column;
+
+  gap: 16px;
+
+  &__header {
+    width: 100%;
+
+    @include display_flex_row_space_between;
+
+    gap: 16px;
+  }
+
+  &__heading {
+    color: $color_white;
+  }
+
+  &__cellText {
+    color: $color_light_gray;
+
+    font-size: 14px;
+    line-height: 20px;
+    overflow-wrap: anywhere;
+  }
+
+  //-----------
+
+  &__cellText--title {
+    color: $color_white;
+
+    font-family: $font_family_base;
+    font-weight: $font_weight_bold;
+  }
+
+  &__cellText--muted {
+    color: $color_gray;
+
+    font-size: 12px;
+  }
+}

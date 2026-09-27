@@ -1,0 +1,72 @@
+/*------| COLOR STATICS |------
+
+Every color is declared ONCE here as an RGB triplet on a CSS custom property, so that a theme
+switch is a variable swap and never a re-styling pass. Dark is the default theme; the light
+theme only overrides the triplets it actually changes.
+
+Utility classNames (.color_* / .background_color_*) are generated right below the variables so
+any component can take a color by name instead of hardcoding a hex.
+
+------------*/
+
+:root {
+  --color-black: 12, 14, 18;
+  --color-light-black: 24, 27, 33;
+  --color-dark-gray: 42, 47, 56;
+  --color-gray: 108, 117, 133;
+  --color-light-gray: 176, 183, 196;
+  --color-white: 244, 246, 250;
+
+  --color-accent: 103, 187, 222;
+  --color-dark-accent: 62, 141, 175;
+
+  --color-green: 5, 227, 12;
+  --color-yellow: 245, 197, 24;
+  --color-red: 226, 30, 37;
+}
+
+[data-appTheme="light-theme"] {
+  --color-black: 244, 246, 250;
+  --color-light-black: 255, 255, 255;
+  --color-dark-gray: 226, 230, 238;
+  --color-gray: 108, 117, 133;
+  --color-light-gray: 64, 70, 82;
+  --color-white: 12, 14, 18;
+}
+
+@layer utilities {
+  .color_white {
+    color: rgb(var(--color-white)) !important;
+  }
+  .color_light_gray {
+    color: rgb(var(--color-light-gray)) !important;
+  }
+  .color_gray {
+    color: rgb(var(--color-gray)) !important;
+  }
+  .color_accent {
+    color: rgb(var(--color-accent)) !important;
+  }
+  .color_green {
+    color: rgb(var(--color-green)) !important;
+  }
+  .color_yellow {
+    color: rgb(var(--color-yellow)) !important;
+  }
+  .color_red {
+    color: rgb(var(--color-red)) !important;
+  }
+
+  .background_color_black {
+    background-color: rgb(var(--color-black)) !important;
+  }
+  .background_color_light_black {
+    background-color: rgb(var(--color-light-black)) !important;
+  }
+  .background_color_dark_gray {
+    background-color: rgb(var(--color-dark-gray)) !important;
+  }
+  .background_color_accent {
+    background-color: rgb(var(--color-accent)) !important;
+  }
+}

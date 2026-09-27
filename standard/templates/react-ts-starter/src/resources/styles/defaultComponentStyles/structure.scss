@@ -1,0 +1,26 @@
+@use "../callers/variablesCaller.scss" as *;
+@use "../callers/mixinsCaller.scss" as *;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+
+  overflow: hidden;
+}
+
+body {
+  background-color: $color_black;
+
+  color: $color_white;
+
+  font-family: $font_family_base;
+  font-weight: $font_weight_regular;
+}

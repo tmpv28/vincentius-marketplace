@@ -1,0 +1,11 @@
+// One scale. The named sizes are what the responsive mixins consume; nothing outside those
+// mixins reads a breakpoint directly.
+$breakpoint-xs-max: 479px; // Small phones end
+$breakpoint-s-min: 480px; // Large phones start
+$breakpoint-s-max: 767px; // Large phones end
+$breakpoint-m-min: 768px; // Tablets start
+$breakpoint-m-max: 1023px; // Tablets end
+$breakpoint-l-min: 1024px; // Laptops start
+$breakpoint-l-max: 1439px; // Laptops end
+$breakpoint-xl-min: 1440px; // Desktops start
+$breakpoint-2xl-min: 1920px; // Large / wide screens start

@@ -1,0 +1,133 @@
+.ButtonComponent {
+  width: fit-content;
+  min-width: fit-content;
+  height: fit-content;
+
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  overflow: hidden;
+
+  color: $color_white;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+
+  font-family: $font_family_base;
+  font-weight: $font_weight_bold;
+  font-size: 14px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+
+  transition: all 0.2s linear;
+  cursor: pointer;
+
+  &__icon {
+    @include display_flex_row_all_center;
+
+    width: 16px;
+    height: 16px;
+  }
+
+  &__badge {
+    min-width: 18px;
+
+    display: inline-block;
+    padding: 0 6px;
+
+    color: $color_black;
+    background-color: $color_accent;
+    border-radius: 9px;
+
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+  }
+
+  &__spinner {
+    width: 14px;
+    height: 14px;
+
+    display: inline-block;
+
+    border: 2px solid themeRgba(--color-white, 0.3);
+    border-top-color: $color_white;
+    border-radius: 50%;
+
+    animation: button-component-spin 0.7s linear infinite;
+  }
+
+  //-----------
+
+  &--small {
+    padding: 6px 12px;
+
+    font-size: 12px;
+  }
+
+  &--large {
+    padding: 14px 24px;
+
+    font-size: 16px;
+  }
+
+  &--paddingSize__small {
+    padding: 4px 8px;
+  }
+
+  &--paddingSize__large {
+    padding: 18px 28px;
+  }
+
+  &--normal {
+    background-color: $color_dark_gray;
+
+    &:hover {
+      background-color: $color_gray;
+    }
+  }
+
+  &--accent {
+    color: $color_black;
+    background-color: $color_accent;
+
+    &:hover {
+      background-color: $color_dark_accent;
+    }
+  }
+
+  &--danger {
+    color: $color_white;
+    background-color: themeRgba(--color-red, 0.85);
+
+    &:hover {
+      background-color: $color_red;
+    }
+  }
+
+  &--transparent {
+    background-color: transparent;
+
+    &:hover {
+      background-color: themeRgba(--color-white, 0.08);
+    }
+  }
+
+  &--transparent-with-border {
+    background-color: transparent;
+    border-color: $color_dark_gray;
+
+    &:hover {
+      border-color: $color_accent;
+    }
+  }
+}
+
+@keyframes button-component-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
