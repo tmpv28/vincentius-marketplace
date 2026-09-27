@@ -14,7 +14,7 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
 | --- | --- | --- | --- | --- |
 | 0 | Harden this machine | done | n/a (machine config) | see Phase 0 notes |
 | 1 | Local clean-up | done | n/a (machine config) | see Phase 1 notes |
-| 2 | Create the repo | in progress | | |
+| 2 | Create the repo | done | see git log, tag hold/phase-2 | TV history under standard/ (10 commits); hooks + 85 unit tests moved in |
 | 3 | Split the standard | pending | | |
 | 4 | Vendor everything | pending | | |
 | 5 | Build the tooling | pending | | |
