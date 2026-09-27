@@ -36,3 +36,6 @@ CLAUDE.local.md
 # Environment variables (.env holds the empty schema, committed; real values go in .env.local)
 .env.local
 .env.*.local
+
+# Impeccable writes its project state here
+.impeccable/

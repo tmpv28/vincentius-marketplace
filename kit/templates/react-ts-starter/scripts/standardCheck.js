@@ -287,6 +287,31 @@ if (conflicts) {
   process.exit(1);
 }
 
+// ─── Step 0b: Em-dashes in code-adjacent text ─────────────
+
+// 00 #5 is a non-negotiable, so it is a gate here rather than a notice. Built from its char code
+// so this file does not trip its own check.
+const EM_DASH = String.fromCharCode(0x2014);
+const CODE_ADJACENT_PATTERN = /\.(tsx?|jsx?|mjs|cjs|s?css|html)$/;
+
+const emDashHits = collectFiles("src")
+  .filter((filePath) => CODE_ADJACENT_PATTERN.test(filePath))
+  .flatMap((filePath) =>
+    readFileSync(filePath, "utf-8")
+      .split("\n")
+      .map((line, index) => (line.includes(EM_DASH) ? `${filePath.replace(/\\/g, "/")}:${index + 1}` : null))
+      .filter(Boolean)
+  );
+
+if (emDashHits.length > 0) {
+  printStepHeader("Em-dash check...");
+  emDashHits.forEach((hit) => console.log(`  ${chalk.underline.cyan(hit)}`));
+  console.log(
+    `\n${STEP_ICON_FAIL} ${chalk.red.bold("Em-dashes in code. Use a period, a semicolon or a colon.")}\n\n`
+  );
+  hasFatalFailure = true;
+}
+
 // ─── Step 1: Formatting ───────────────────────────────────
 
 printStepHeader("Formatting & auto-fixing...");

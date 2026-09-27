@@ -15,7 +15,7 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
 | 0 | Harden this machine | done | n/a (machine config) | see Phase 0 notes |
 | 1 | Local clean-up | done | n/a (machine config) | see Phase 1 notes |
 | 2 | Create the repo | done | see git log, tag hold/phase-2 | TV history under standard/ (10 commits); hooks + 85 unit tests moved in |
-| 3 | Split the standard | pending | | |
+| 3 | Split the standard | done | tag hold/phase-3 | core 12.9k tok; typescript 5.4k; react 13.1k; accessibility 0.6k; styles 1.4k; scss 1.4k; testing 1.8k; node-tooling 2.8k (chars/4). 175 sections, 2440 lines verified verbatim |
 | 4 | Vendor everything | pending | | |
 | 5 | Build the tooling | pending | | |
 | 6 | Review until clean | pending | | |
@@ -53,6 +53,17 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
   individually needs the interactive `/mcp` screen.
 
 ---
+
+## Phase 3 notes
+
+- Planned `css.md` and `html.md` became `styles.md` (scss + css) and `accessibility.md` (tsx, jsx, html, vue,
+  svelte): each section can live in exactly one file, and both HTML and React files need the
+  accessibility rules, both SCSS and CSS the language-free styling rules.
+- AGENTS "tells" table went to react.md: every row is a React/TypeScript/SCSS tell.
+- Drift settled: 04 fence and missing heading; 08 `.claude/memory/` replaced by auto memory; template
+  CLAUDE.md (ESLint line, four-file contexts, classNames object, staircase as preference, real paths,
+  test:unit); template std:check gained the em-dash gate (D7); `.impeccable/` ignored.
+- Checklists moved into `kit/skills/tv-pre-pr/` and `kit/skills/tv-new-project/` with history.
 
 ## Corrections
 

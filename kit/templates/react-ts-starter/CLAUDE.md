@@ -4,9 +4,9 @@ A React 19 + TypeScript starter that ships the TV-STANDARD conventions already a
 neutral demo entity, "Note", is wired through every layer so the shape of each layer is visible
 rather than described. Copy it, rename it, point it at a server.
 
-IMPORTANT: TV-STANDARD is the governing standard for this template. Load
-`PersonalProjects/TV-STANDARD/AGENTS.md`, `identity/` and `standards/` in full before writing
-anything here. Do not sample them, and do not grep for the one rule you think you need.
+IMPORTANT: TV-STANDARD is the governing standard for this template. Its core loads in every
+session and its packs load in full as you read files (installed from vincentius-marketplace into
+`~/.claude/rules/tv/`). Before creating the first file of a language, read an existing one here.
 
 ## Stack
 
@@ -16,7 +16,7 @@ anything here. Do not sample them, and do not grep for the one rule you think yo
 - Mantine 7, behind a wrapper, never imported by a feature
 - Axios for the one module-level API instance
 - Vitest with jsdom, Storybook 9
-- ESLint (airbnb + prettier), Prettier, Stylelint
+- ESLint 9 flat config (`@eslint/js`, `typescript-eslint`, react, jsx-a11y, prettier), Prettier, Stylelint
 
 ## Quick start
 
@@ -26,7 +26,7 @@ cp .env .env.local        # then fill in the real values in .env.local
 pnpm dev
 
 pnpm std:check            # must be clean before anything is called done
-pnpm test:no-watch
+pnpm test:unit
 pnpm build
 ```
 
@@ -42,7 +42,7 @@ src/
 │   └── queries/notes/                    # The domain: URLs, payloads, validation, endpoint hooks
 ├── commons/
 │   ├── components/                       # Reusable UI. Zero domain knowledge.
-│   ├── contexts/                         # Split state/actions contexts, five-file layout
+│   ├── contexts/                         # Four-file contexts; state/actions split only where it earns it
 │   ├── systems/responseObjectSystem/     # One vocabulary for "did this work and why not"
 │   ├── types/ constants/ utils/          # generic.ts, shared.ts, typeChecks/, formatting/
 ├── features/Notes/                       # AddNote, ManageNotes
@@ -92,7 +92,8 @@ Add new providers to that chain by hand and update this line in the same commit.
 - IMPORTANT: Types end in `Type`. A component's props type is `<ComponentName>Type`, never
   `...Props`, never an `I` prefix.
 - IMPORTANT: No barrel files, no path aliases. Deep relative imports only, grouped by origin with
-  blank lines, sorted longest line first inside each group, the `.scss` import always last.
+  blank lines, the `.scss` import always last. Longest line first inside a group is a preference,
+  not a gate (TV 01).
 - IMPORTANT: `isNullOrEmpty(value)`, never `!value`. `areEqual(a, b)` for anything structural.
 - IMPORTANT: No `enum`. `as const` objects with the union type derived from them, and a coercion
   function next to the union for anything arriving from a URL, storage or a server.
@@ -104,7 +105,8 @@ Add new providers to that chain by hand and update this line in the same commit.
   imports `@mantine/*` is a bug.
 - IMPORTANT: The committed `.env` is a schema with no values. Real values live in `.env.local`.
 - Loading, empty and error are props on a shared component, not branches at the call site.
-- Class composition is the `classNames` array, base class first, `customClassName` last.
+- Class composition is the `classNames` object, one key per DOM part, base class first and
+  `customClassNames.<part>` last; the array form only on single-element components (TV 04).
 - SCSS: PascalCase block matching the component name, `&__element` / `&--modifier`, properties
   grouped by concern (size, layout, colour, typography, behaviour), no hex literals, no `@import`.
 - Tests cover pure modules, not renders. If a rule is hard to test without rendering, the rule is
@@ -137,6 +139,6 @@ Then delete `demoNotesDefinition.ts`.
 ## Where to look before asking
 
 1. The code around the thing you are changing.
-2. `PersonalProjects/TV-STANDARD/standards/` and `identity/`.
+2. The TV rules in `~/.claude/rules/tv/` (core plus the packs for the files you read).
 3. This file and `README.md`.
 4. The existing `notes` entity, which is the worked example of every layer.
