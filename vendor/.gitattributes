@@ -1,0 +1,5 @@
+# Upstream bytes are stored and checked out exactly as upstream has them: text=auto would renormalise a
+# CRLF upstream file, and its blob would stop matching the upstream tree and the recorded sha256.
+*/upstream/** -text
+*/LICENSE* -text
+*/NOTICE* -text

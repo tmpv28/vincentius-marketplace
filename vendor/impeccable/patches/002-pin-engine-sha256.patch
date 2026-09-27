@@ -1,0 +1,120 @@
+diff --git a/a/skill/scripts/impeccable b/b/skill/scripts/impeccable
+index eb60f86..1df4514 100644
+--- a/a/skill/scripts/impeccable
++++ b/b/skill/scripts/impeccable
+@@ -9,6 +9,7 @@
+ # "Unknown command". Trusted candidates (IMPECCABLE_BIN, the sibling binary,
+ # the version-pinned cache) are exec'd without a probe: hooks run them on
+ # every edit and must stay fast.
++# Modified by vincentius-marketplace; see THIRD_PARTY_NOTICES.md
+ set -eu
+ 
+ # True when the candidate answers the engine handshake (prints
+@@ -114,6 +115,19 @@ check_download() {
+     exit 127
+   fi
+ }
++# The sha256 of each release asset, pinned by vincentius-marketplace (vendor/vendor.json). The release's
++# .sha256 sidecar and IMPECCABLE_DOWNLOAD_BASE come from the same place as the binary, so neither can
++# vouch for it; an asset or version with no pinned value is refused.
++pinned_sha256() {
++  case "$1" in
++    0.1.5/impeccable-darwin-arm64) echo 0d48b6e16aa97664fdbe607d5da9ae320e389a1843e0ff1328f8c2530530320d ;;
++    0.1.5/impeccable-darwin-x64) echo 153971b0c00719dff9ebac13370cb7dbbbe12838b696fbaf3f7ab0b1b3726b52 ;;
++    0.1.5/impeccable-linux-arm64) echo bc4fa28bc8ccbb018795a99a4ece95ada898a6f1885f14281389d0e6ef2a2f98 ;;
++    0.1.5/impeccable-linux-x64) echo cf5231a4b1ae66996c85b033800b1dad0797e590eae2f21ef2579430af187f19 ;;
++    0.1.5/impeccable-windows-x64.exe) echo 477e544fc8880a5e82e427490cb9a5f5adab480c0e02966d33fd50772b531c71 ;;
++    *) echo "" ;;
++  esac
++}
+ if [ -n "$probing" ]; then
+   # Inside another launcher's probe: no download, fail fast and quiet.
+   exit 127
+@@ -146,20 +160,13 @@ if [ -n "$version" ] && [ "$os" != unknown ] && [ "$arch" != unknown ]; then
+   fi
+   if [ "$fetched" = 1 ]; then
+     check_download
+-    # Fail closed: a freshly downloaded binary runs only after verifying
+-    # against its .sha256 sidecar. A sidecar that cannot be fetched, or a
+-    # machine with no sha256 tool, refuses the download instead of exec'ing
+-    # an unverified binary. (A binary already on PATH or in the cache that
+-    # passes engine-probe is unaffected.)
+-    sidecar_ok=0
+-    if command -v curl >/dev/null 2>&1; then
+-      curl -fsSL --retry 2 -o "$tmp.sha256" "$url.sha256" 2>/dev/null && sidecar_ok=1
+-    elif command -v wget >/dev/null 2>&1; then
+-      wget -q -O "$tmp.sha256" "$url.sha256" 2>/dev/null && sidecar_ok=1
+-    fi
+-    check_download
+-    expected=""
+-    [ "$sidecar_ok" = 1 ] && expected=$(cut -d' ' -f1 < "$tmp.sha256")
++    # Fail closed: a freshly downloaded binary runs only after matching its
++    # pinned sha256. An asset with no pinned value, or a machine with no
++    # sha256 tool, refuses the download instead of exec'ing an unverified
++    # binary. (A binary already on PATH or in the cache that passes
++    # engine-probe is unaffected.) The asset is read back from the url so the
++    # Windows arm64 fallback is checked against the x64 value.
++    expected=$(pinned_sha256 "$version/${url##*/}")
+     actual=""
+     if command -v shasum >/dev/null 2>&1; then
+       if digest=$(shasum -a 256 "$tmp" 2>/dev/null); then actual=${digest%% *}; fi
+@@ -167,10 +174,9 @@ if [ -n "$version" ] && [ "$os" != unknown ] && [ "$arch" != unknown ]; then
+       if digest=$(sha256sum "$tmp" 2>/dev/null); then actual=${digest%% *}; fi
+     fi
+     check_download
+-    rm -f "$tmp.sha256"
+     if [ -z "$expected" ] || [ -z "$actual" ]; then
+       rm -f "$tmp"
+-      echo "impeccable: cannot verify $url against $url.sha256 (sidecar unavailable or hashing failed); refusing the unverified download" >&2
++      echo "impeccable: cannot verify $url (no pinned sha256 for ${url##*/} at engine $version, or hashing failed); refusing the unverified download" >&2
+       exit 127
+     fi
+     if [ "$actual" != "$expected" ]; then
+diff --git a/a/skill/scripts/impeccable.cmd b/b/skill/scripts/impeccable.cmd
+index 7ebe419..3d65037 100644
+--- a/a/skill/scripts/impeccable.cmd
++++ b/b/skill/scripts/impeccable.cmd
+@@ -13,10 +13,13 @@ rem - The unversioned user binary and the PATH candidate are validated with
+ rem   the engine-probe handshake (see :probe) so the retired 3.x npm CLI,
+ rem   whose bin is also named impeccable, is never exec'd. IMPECCABLE_BIN,
+ rem   the sibling binary, and the version-pinned cache stay trusted.
+-rem - Downloads are verified against the .sha256 sidecar via certutil and
+-rem   fail closed: a missing sidecar or hash tool refuses the download. On
++rem - Downloads are verified via certutil against a sha256 pinned per version
++rem   and asset in :verify, never the .sha256 sidecar (it comes from the same
++rem   place as the binary), and fail closed: a missing pinned value or hash
++rem   tool refuses the download. On
+ rem   ARM64 the arm64 asset is tried first and the x64 asset is the
+ rem   fallback (Windows on ARM runs x64 binaries).
++rem Modified by vincentius-marketplace; see THIRD_PARTY_NOTICES.md
+ if not defined IMPECCABLE_SKILL_DIR set "IMPECCABLE_SKILL_DIR=%~dp0.."
+ if not defined IMPECCABLE_SELF set "IMPECCABLE_SELF=%~f0"
+ set "arch=x64"
+@@ -94,14 +97,11 @@ if errorlevel 1 goto download_failed
+ call :check_download
+ if errorlevel 1 exit /b 127
+ rem Mirrors the sh launcher and fails closed: a freshly downloaded binary
+-rem runs only after verifying against its .sha256 sidecar. A sidecar that
+-rem cannot be fetched, or an empty certutil result, refuses the download
+-rem instead of running an unverified binary.
+-curl.exe -fsSL -o "%cached%.sha256" "%url%.sha256" >nul 2>nul
+-if errorlevel 1 goto verify_refuse
++rem runs only after matching the sha256 pinned by vincentius-marketplace
++rem (vendor/vendor.json). An asset or version with no pinned value, or an
++rem empty certutil result, refuses the download instead of running it.
+ set "expected="
+-set /p expected=<"%cached%.sha256"
+-for /f "tokens=1" %%h in ("%expected%") do set "expected=%%h"
++if "%version%/%asset%"=="0.1.5/impeccable-windows-x64.exe" set "expected=477e544fc8880a5e82e427490cb9a5f5adab480c0e02966d33fd50772b531c71"
+ call :check_download
+ if errorlevel 1 exit /b 127
+ set "actual="
+@@ -126,7 +126,7 @@ call :check_download
+ if errorlevel 1 exit /b 127
+ del "%cached%.part" >nul 2>nul
+ del "%cached%.sha256" >nul 2>nul
+-echo impeccable: cannot verify %url% against %url%.sha256; refusing the unverified download 1>&2
++echo impeccable: cannot verify %url% (no pinned sha256 for %asset% at engine %version%, or hashing failed); refusing the unverified download 1>&2
+ exit /b 127
+ 
+ :check_download

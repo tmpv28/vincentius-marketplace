@@ -1,23 +1,32 @@
 // Monthly upstream check for everything in vendor/vendor.json. Read-only unless --bump is given.
 //   node scripts/vendor-check.mjs              report every entry
 //   node scripts/vendor-check.mjs --json       the same report as JSON
-//   node scripts/vendor-check.mjs --bump <name>  move <name> to its candidate, re-apply patches, stop on conflict
-// A candidate is the newest upstream change at least 7 days old (TV 11). Nothing is ever bumped automatically.
-// VENDOR_CHECK_FIXTURE=<file.json> replaces GitHub and npm with canned responses (tests).
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, cpSync, existsSync } from "node:fs";
-import { join } from "node:path";
+//   node scripts/vendor-check.mjs --bump <name> [--accept-flags]
+//                                              move a skill to its candidate, re-apply patches, stop on conflict;
+//                                              or pin a binary's candidate release by every asset's sha256
+// A candidate is the newest upstream change whose every commit is at least 7 days old (TV 11). Nothing is
+// ever bumped automatically, and a bump with flags needs --accept-flags after the flags have been read.
+// VENDOR_CHECK_FIXTURE=<file.json> replaces GitHub and npm with canned responses (tests); a
+// "clone:<owner/repo>" key in it names a local repository to clone instead of GitHub.
+import { readFileSync, mkdtempSync, rmSync, cpSync, existsSync, copyFileSync } from "node:fs";
+import { join, basename } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 
-import { VENDOR, ROOT, readVendor, buildItem } from "./vendor-lib.mjs";
+import { VENDOR, readVendor, writeVendor, repoOf, buildItem, hashUpstream } from "./vendor-lib.mjs";
+import { fetchUpstream } from "./vendor-fetch.mjs";
 
 const DAY = 24 * 60 * 60 * 1000;
 const MIN_AGE_DAYS = 7;
+const PER_PAGE = 100;
+// GitHub's compare lists at most this many files, however many changed.
+const COMPARE_FILE_LIMIT = 300;
 const now = process.env.VENDOR_CHECK_NOW ? new Date(process.env.VENDOR_CHECK_NOW) : new Date();
 const fixture = process.env.VENDOR_CHECK_FIXTURE ? JSON.parse(readFileSync(process.env.VENDOR_CHECK_FIXTURE, "utf8")) : null;
 
 // Paths whose change needs a human read before a bump: code, hooks, and tool grants.
 const SCRIPT_FILE = /\.(sh|py|js|mjs|cjs|ts|ps1|cmd|bat|exe)$/i;
+const SCRIPTS_DIR = /(^|\/)scripts\//;
 const RISKY_TEXT = [
   [/https?:\/\/[^\s)"'`]+/g, "new URL"],
   [/\b(curl|wget|npx|pip install|uv run|Invoke-WebRequest|iwr)\b/g, "downloads or runs something"],
@@ -40,7 +49,6 @@ const inRange = (version, range) => (range || "").split(",").map((part) => part.
   return { ">=": c >= 0, "<=": c <= 0, ">": c > 0, "<": c < 0, "=": c === 0, undefined: c === 0 }[op];
 });
 
-const repoOf = (url) => url.replace(/^https:\/\/github\.com\//, "").replace(/\/releases\/tag\/.*$/, "").replace(/\/$/, "");
 const ageDays = (date) => (now - new Date(date)) / DAY;
 
 const ghApi = (path) => {
@@ -49,8 +57,34 @@ const ghApi = (path) => {
     return fixture[path];
   }
   const result = spawnSync("gh", ["api", path], { encoding: "utf8", maxBuffer: 1 << 26 });
-  if (result.status !== 0) throw new Error(`gh api ${path}: ${result.stderr.trim()}`);
+  if (result.status !== 0) throw new Error(`gh api ${path}: ${result.error?.message ?? result.stderr.trim()}`);
   return JSON.parse(result.stdout);
+};
+
+// Every page of a list endpoint whose path already carries per_page=100: a full page means there may be
+// another. Paged by hand rather than gh --paginate so the fixtures page the same way.
+const ghList = (path) => {
+  const all = [];
+  for (let page = 1; ; page++) {
+    const body = ghApi(page === 1 ? path : `${path}&page=${page}`);
+    all.push(...body);
+    if (body.length < PER_PAGE) return all;
+  }
+};
+
+// A compare pages its commits; the file list comes with the first page only.
+const ghCompare = (repo, base, head) => {
+  const path = `repos/${repo}/compare/${base}...${head}?per_page=${PER_PAGE}`;
+  const first = ghApi(path);
+  if (!Array.isArray(first.commits)) throw new Error(`compare ${base.slice(0, 7)}...${head.slice(0, 7)} returned no commit list`);
+  const commits = [...first.commits];
+  const total = first.total_commits ?? commits.length;
+  for (let page = 2; commits.length < total; page++) {
+    const next = ghApi(`${path}&page=${page}`);
+    if (!next.commits?.length) throw new Error(`compare ${base.slice(0, 7)}...${head.slice(0, 7)}: page ${page} is empty at ${commits.length} of ${total} commits`);
+    commits.push(...next.commits);
+  }
+  return { files: first.files || [], commits };
 };
 
 const npmMeta = async (pkg) => {
@@ -61,14 +95,33 @@ const npmMeta = async (pkg) => {
 };
 
 // ─── Per kind ───────────────────────────────────────────────
+const flagsFor = (files) => {
+  const flags = [];
+  if (files.length >= COMPARE_FILE_LIMIT) flags.push(`unscanned: GitHub listed ${files.length} files, the most it lists; the rest were not read`);
+  for (const file of files) {
+    const addedLines = (file.patch || "").split("\n").filter((line) => line.startsWith("+"));
+    const isNewShebang = file.status === "added" && /^\+#!/.test(addedLines[0] ?? "");
+    if (SCRIPT_FILE.test(file.filename) || SCRIPTS_DIR.test(file.filename) || isNewShebang) flags.push(`${file.status} script: ${file.filename}`);
+    // GitHub leaves `patch` out for a binary or an oversized diff; either way nothing below read it.
+    if (file.patch === undefined && file.status !== "removed") flags.push(`unscanned (diff too large or binary): ${file.filename}`);
+    const added = addedLines.join("\n");
+    for (const [pattern, label] of RISKY_TEXT) {
+      const hits = added.match(pattern);
+      if (hits) flags.push(`${label} in ${file.filename}: ${[...new Set(hits)].slice(0, 3).join(", ")}`);
+    }
+  }
+  return flags;
+};
+
 const checkSkill = (name, entry) => {
   const repo = repoOf(entry.upstream);
   const watchPaths = Object.keys(entry.paths);
+  const isWatched = (file) => Boolean(file) && watchPaths.some((path) => file === path || file.startsWith(`${path}/`));
   // The pinned commit's own timestamp, not its calendar day: same-day commits can sit on either side.
   const pinnedAt = new Date(ghApi(`repos/${repo}/commits/${entry.pinned.sha}`).commit.committer.date);
   const seen = new Map();
   for (const path of watchPaths) {
-    const commits = ghApi(`repos/${repo}/commits?path=${encodeURIComponent(path)}&since=${entry.pinned.date}T00:00:00Z&per_page=100`);
+    const commits = ghList(`repos/${repo}/commits?path=${encodeURIComponent(path)}&since=${entry.pinned.date}T00:00:00Z&per_page=${PER_PAGE}`);
     for (const c of commits)
       if (c.sha !== entry.pinned.sha && new Date(c.commit.committer.date) > pinnedAt) seen.set(c.sha, c.commit.committer.date);
   }
@@ -77,26 +130,23 @@ const checkSkill = (name, entry) => {
   const tooNew = newer.length - eligible.length;
   if (eligible.length === 0) return { name, kind: "skill", status: newer.length ? "waiting" : "up-to-date", tooNew, flags: [] };
 
-  const [candidate, candidateDate] = eligible[0];
-  const compare = ghApi(`repos/${repo}/compare/${entry.pinned.sha}...${candidate}`);
-  const files = (compare.files || []).filter((f) => watchPaths.some((p) => f.filename.startsWith(p)));
-  const flags = [];
-  for (const file of files) {
-    if (SCRIPT_FILE.test(file.filename)) flags.push(`${file.status} script: ${file.filename}`);
-    const added = (file.patch || "").split("\n").filter((l) => l.startsWith("+")).join("\n");
-    for (const [pattern, label] of RISKY_TEXT) {
-      const hits = added.match(pattern);
-      if (hits) flags.push(`${label} in ${file.filename}: ${[...new Set(hits)].slice(0, 3).join(", ")}`);
-    }
+  // The candidate's own date is not enough: every commit it brings in must be old enough, and committer
+  // dates are whatever the committer wrote. Fall back to an older candidate whose range is clean.
+  for (const [candidate, candidateDate] of eligible) {
+    const compare = ghCompare(repo, entry.pinned.sha, candidate);
+    if (compare.commits.some((c) => ageDays(c.commit.committer.date) < MIN_AGE_DAYS)) continue;
+    const files = compare.files.filter((f) => isWatched(f.filename) || isWatched(f.previous_filename));
+    return { name, kind: "skill", status: files.length ? "update-available" : "no-change-in-path",
+      candidate, candidateDate, changedFiles: files.map((f) => `${f.status} ${f.filename}`), tooNew, flags: flagsFor(files) };
   }
-  return { name, kind: "skill", status: files.length ? "update-available" : "no-change-in-path",
-    candidate, candidateDate, changedFiles: files.map((f) => `${f.status} ${f.filename}`), tooNew, flags };
+  return { name, kind: "skill", status: "waiting", tooNew,
+    note: `every candidate brings in a commit under ${MIN_AGE_DAYS} days old`, flags: [] };
 };
 
 const checkBinary = (name, entry) => {
   const repo = repoOf(entry.upstream);
   const prefix = entry.pinned.ref.replace(/v[\d.]+$/, "v");
-  const releases = ghApi(`repos/${repo}/releases?per_page=50`)
+  const releases = ghList(`repos/${repo}/releases?per_page=${PER_PAGE}`)
     .filter((r) => r.tag_name.startsWith(prefix) && !r.draft && !r.prerelease
       && compareVersions(r.tag_name, entry.pinned.ref) > 0);
   const eligible = releases.filter((r) => ageDays(r.published_at) >= MIN_AGE_DAYS);
@@ -121,34 +171,109 @@ const checkNpm = async (name, entry) => {
     tooNew: newer.length - eligible.length, flags };
 };
 
-// ─── Bump one skill ─────────────────────────────────────────
-const bump = (name, vendor, report) => {
-  const entry = vendor[name];
-  const item = report.find((r) => r.name === name);
-  if (!entry || entry.kind !== "skill") throw new Error(`--bump supports skill entries; ${name} is ${entry?.kind}`);
-  if (!item || item.status !== "update-available") { console.log(`${name}: nothing eligible to bump (${item?.status})`); return 0; }
+const printItem = (r) => {
+  const shown = r.kind === "skill" ? String(r.candidate).slice(0, 7) : String(r.candidate);
+  const extra = r.status === "update-available" ? ` → ${shown} (${String(r.candidateDate).slice(0, 10)})` : "";
+  const waiting = r.tooNew ? `, ${r.tooNew} newer but under ${MIN_AGE_DAYS} days` : "";
+  const icon = r.status === "error" ? "✖" : r.status === "update-available" ? "▲" : "✔";
+  console.log(`${icon}  ${r.name}: ${r.status}${extra}${waiting}${r.note ? `; ${r.note}` : ""}${r.error ? ` (${r.error})` : ""}`);
+  for (const f of r.flags) console.log(`     ! ${f}`);
+  for (const c of r.changedFiles || []) console.log(`     ${c}`);
+};
 
-  const backup = mkdtempSync(join(tmpdir(), `vendor-backup-${name}-`));
-  cpSync(join(VENDOR, name, "upstream"), backup, { recursive: true });
-  const clone = mkdtempSync(join(tmpdir(), `vendor-clone-${name}-`));
-  const cloned = spawnSync("git", ["clone", "-q", "--filter=blob:none", `${entry.upstream}.git`, clone], { encoding: "utf8" });
-  if (cloned.status !== 0) throw new Error(`clone failed: ${cloned.stderr}`);
-  const fetched = spawnSync(process.execPath, [join(ROOT, "scripts", "vendor-fetch.mjs"), name, clone, item.candidate], { encoding: "utf8" });
-  if (fetched.status !== 0) throw new Error(fetched.stderr);
-
-  try {
-    buildItem(name, entry);
-  } catch (error) {
-    rmSync(join(VENDOR, name, "upstream"), { recursive: true, force: true });
-    cpSync(backup, join(VENDOR, name, "upstream"), { recursive: true });
-    console.error(`${name}: stopped, upstream restored. ${error.message}`);
+// ─── Bump one binary ────────────────────────────────────────
+// Pins every platform asset by the digest GitHub computed at upload. The release's own .sha256 sidecars
+// are not used: they come from the same place as the binaries, so they cannot vouch for them.
+const bumpBinary = (name, entry, item, vendor) => {
+  const repo = repoOf(entry.upstream);
+  const assets = (ghApi(`repos/${repo}/releases/tags/${item.candidate}`).assets || []).filter((asset) => !asset.name.endsWith(".sha256"));
+  const undigested = assets.filter((asset) => !/^sha256:[0-9a-f]{64}$/.test(asset.digest ?? "")).map((asset) => asset.name);
+  if (assets.length === 0 || undigested.length) {
+    console.error(`${name}: GitHub has no sha256 digest for ${undigested.join(", ") || "any asset"} of ${item.candidate}; download and hash them by hand, never run them`);
     return 1;
   }
-  entry.pinned = { ref: entry.pinned.ref, sha: item.candidate, date: item.candidateDate.slice(0, 10) };
+  if (!assets.some((asset) => asset.name === entry.asset)) {
+    console.error(`${name}: ${item.candidate} has no ${entry.asset}`);
+    return 1;
+  }
+  const previousRef = entry.pinned.ref;
+  entry.upstream = `https://github.com/${repo}/releases/tag/${item.candidate}`;
+  entry.pinned = { ref: item.candidate, date: item.candidateDate.slice(0, 10) };
+  entry.assetSha256 = Object.fromEntries(assets.map((asset) => [asset.name, asset.digest.slice("sha256:".length)]).sort(([a], [b]) => (a < b ? -1 : 1)));
+  if (entry.install?.path) entry.install.path = entry.install.path.split(previousRef).join(item.candidate);
+  // The recorded signer vouched for the previous binary; install refuses until someone checks the new one.
+  entry.signer = null;
   entry.reviewed = null;
-  writeFileSync(join(VENDOR, "vendor.json"), JSON.stringify(vendor, null, 2) + "\n");
-  console.log(`${name}: moved to ${item.candidate.slice(0, 7)} (${item.candidateDate.slice(0, 10)}). Read the diff, set "reviewed", then commit: chore(vendor): bump ${name}`);
+  writeVendor(vendor);
+  console.log(`${name}: moved to ${item.candidate} with ${assets.length} pinned asset hashes. Verify the Authenticode signer of ${entry.asset}, record it, set "reviewed", regenerate any patch that embeds these hashes, then commit: chore(vendor): bump ${name}`);
   return 0;
+};
+
+// ─── Bump one skill ─────────────────────────────────────────
+const bump = (name, vendor, report, shouldAcceptFlags) => {
+  const entry = vendor[name];
+  const item = report.find((r) => r.name === name);
+  if (!entry || !["skill", "binary"].includes(entry.kind)) { console.error(`--bump supports skill and binary entries; ${name} is ${entry?.kind ?? "not in vendor.json"}`); return 2; }
+  if (!item || item.status !== "update-available") {
+    console.log(`${name}: nothing eligible to bump (${item?.status}${item?.error ? `: ${item.error}` : ""})`);
+    return item?.status === "error" ? 1 : 0;
+  }
+  printItem(item);
+  if (item.flags.length && !shouldAcceptFlags) {
+    console.error(`${name}: ${item.flags.length} flag${item.flags.length === 1 ? "" : "s"} above. Read them in the upstream diff, then rerun with --accept-flags.`);
+    return 1;
+  }
+  if (entry.kind === "binary") return bumpBinary(name, entry, item, vendor);
+
+  const repo = repoOf(entry.upstream);
+  const upstream = join(VENDOR, name, "upstream");
+  const licences = (entry.licenseFiles || []).map((file) => join(VENDOR, name, basename(file)));
+  const backup = mkdtempSync(join(tmpdir(), `vendor-backup-${name}-`));
+  const clone = mkdtempSync(join(tmpdir(), `vendor-clone-${name}-`));
+  let built = null;
+  let isBumped = false;
+  let shouldKeepBackup = false;
+  try {
+    cpSync(upstream, join(backup, "upstream"), { recursive: true });
+    licences.forEach((file, index) => { if (existsSync(file)) copyFileSync(file, join(backup, `licence-${index}`)); });
+    const source = fixture?.[`clone:${repo}`] ?? `${entry.upstream}.git`;
+    const cloned = spawnSync("git", ["clone", "-q", "--no-checkout", "--filter=blob:none", source, clone], { encoding: "utf8" });
+    if (cloned.status !== 0) throw new Error(`clone failed: ${cloned.error?.message ?? cloned.stderr}`);
+    const { executables } = fetchUpstream(name, entry, clone, item.candidate);
+    built = buildItem(name, entry);
+    const tags = spawnSync("git", ["-C", clone, "tag", "--points-at", item.candidate, "--sort=-version:refname"], { encoding: "utf8" });
+    if (tags.status !== 0) throw new Error(`git tag: ${tags.stderr}`);
+    const [tag] = tags.stdout.split("\n").filter(Boolean);
+    entry.pinned = { ref: tag ?? item.candidate, sha: item.candidate, date: item.candidateDate.slice(0, 10) };
+    // Cleared on purpose: install refuses the item until someone has read the diff and set the date.
+    entry.reviewed = null;
+    entry.upstreamSha256 = hashUpstream(name);
+    entry.executables = executables;
+    writeVendor(vendor);
+    isBumped = true;
+    console.log(`${name}: moved to ${entry.pinned.ref === item.candidate ? item.candidate.slice(0, 7) : `${entry.pinned.ref} (${item.candidate.slice(0, 7)})`}. Read the diff, set "reviewed", run node scripts/notices.mjs, then commit: chore(vendor): bump ${name}`);
+    if (executables.length) console.log(`  record the executable bit: git add --chmod=+x -- ${executables.map((path) => `vendor/${name}/upstream/${path}`).join(" ")}`);
+    return 0;
+  } catch (error) {
+    console.error(`${name}: stopped, upstream restored. ${error.message}`);
+    return 1;
+  } finally {
+    if (!isBumped) {
+      try {
+        rmSync(upstream, { recursive: true, force: true });
+        cpSync(join(backup, "upstream"), upstream, { recursive: true });
+        licences.forEach((file, index) => {
+          const saved = join(backup, `licence-${index}`);
+          if (existsSync(saved)) copyFileSync(saved, file);
+          else rmSync(file, { force: true });
+        });
+      } catch (error) {
+        shouldKeepBackup = true;
+        console.error(`${name}: restoring failed (${error.message}); the previous upstream and licences are in ${backup}`);
+      }
+    }
+    for (const dir of [clone, built, shouldKeepBackup ? null : backup]) if (dir) rmSync(dir, { recursive: true, force: true });
+  }
 };
 
 // ─── Main ───────────────────────────────────────────────────
@@ -165,15 +290,11 @@ for (const [name, entry] of Object.entries(vendor)) {
   }
 }
 
-if (args[0] === "--bump") process.exit(bump(args[1], vendor, report));
-if (args.includes("--json")) { console.log(JSON.stringify(report, null, 2)); process.exit(0); }
-
-for (const r of report) {
-  const shown = r.kind === "skill" ? String(r.candidate).slice(0, 7) : String(r.candidate);
-  const extra = r.status === "update-available" ? ` → ${shown} (${String(r.candidateDate).slice(0, 10)})` : "";
-  const waiting = r.tooNew ? `, ${r.tooNew} newer but under ${MIN_AGE_DAYS} days` : "";
-  console.log(`${r.status === "error" ? "✖" : r.status === "update-available" ? "▲" : "✔"}  ${r.name}: ${r.status}${extra}${waiting}${r.error ? ` (${r.error})` : ""}`);
-  for (const f of r.flags) console.log(`     ! ${f}`);
-  for (const c of r.changedFiles || []) console.log(`     ${c}`);
+if (args[0] === "--bump") process.exit(bump(args[1], vendor, report, args.includes("--accept-flags")));
+const hasErrors = report.some((r) => r.status === "error");
+if (args.includes("--json")) {
+  console.log(JSON.stringify(report, null, 2));
+  process.exit(hasErrors ? 1 : 0);
 }
-process.exit(report.some((r) => r.status === "error") ? 1 : 0);
+for (const r of report) printItem(r);
+process.exit(hasErrors ? 1 : 0);

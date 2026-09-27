@@ -9,7 +9,13 @@ import { homedir } from "node:os";
 const args = process.argv.slice(2);
 const CONFIG = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 const contextTokens = Number(args[args.indexOf("--context") + 1]) || 1000000;
-const settings = existsSync(join(CONFIG, "settings.json")) ? JSON.parse(readFileSync(join(CONFIG, "settings.json"), "utf8")) : {};
+const readSettings = () => {
+  const path = join(CONFIG, "settings.json");
+  if (!existsSync(path)) return {};
+  try { return JSON.parse(readFileSync(path, "utf8")); }
+  catch (error) { console.error(`✖  ${path} is not valid JSON (${error.message}); using the defaults`); return {}; }
+};
+const settings = readSettings();
 const fraction = settings.skillListingBudgetFraction ?? 0.01;
 const PER_SKILL_CAP = settings.skillListingMaxDescChars ?? 1536;
 
@@ -17,9 +23,19 @@ const frontmatter = (file) => {
   const text = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
   const match = text.match(/^---\n([\s\S]*?)\n---/);
   if (!match) return null;
+  // A folded (`>`) or literal (`|`) value continues on the indented lines below its key.
   const field = (key) => {
-    const line = match[1].match(new RegExp(`^${key}:\\s*(.*)$`, "m"));
-    return line ? line[1].replace(/^["']|["']$/g, "").trim() : "";
+    const lines = match[1].split("\n");
+    const start = lines.findIndex((line) => line.startsWith(`${key}:`));
+    if (start === -1) return "";
+    const inline = lines[start].slice(key.length + 1).trim();
+    if (!/^[>|][+-]?$/.test(inline)) return inline.replace(/^["']|["']$/g, "").trim();
+    const continuation = [];
+    for (const line of lines.slice(start + 1)) {
+      if (line.trim() !== "" && !/^\s/.test(line)) break;
+      continuation.push(line.trim());
+    }
+    return continuation.join(" ").trim();
   };
   return { name: field("name"), description: field("description"), whenToUse: field("when_to_use"),
     manual: /^disable-model-invocation:\s*true/m.test(match[1]) };

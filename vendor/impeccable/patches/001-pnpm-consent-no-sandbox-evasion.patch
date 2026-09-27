@@ -1,5 +1,5 @@
 diff --git a/a/agents/impeccable-asset-producer.md b/b/agents/impeccable-asset-producer.md
-index 929aa57..796e851 100644
+index 929aa57..8af600f 100644
 --- a/a/agents/impeccable-asset-producer.md
 +++ b/b/agents/impeccable-asset-producer.md
 @@ -30,9 +30,9 @@ Every region with `medium: raster` in the spec ships as a plate at its `plate` p
@@ -15,8 +15,14 @@ index 929aa57..796e851 100644
  4. Open the plate beside the crop and compare subject, placement, scale, palette, and style. For cutouts, verify a real alpha channel and inspect composites on light and dark grounds: white paint must stay solid, interior holes must clear, and fine edges must avoid halos. Inspect glass and soft shadows carefully; partial alpha alone does not ensure convincing translucency. Never chroma-key native transparent output or flatten it before saving. If a native tool returns opaque pixels or a painted checkerboard, retry with the API fallback when available; otherwise report the transparency blocker. On a visual miss, tighten the prompt and regenerate once. Two misses on one region: keep the better plate, mark it `needs_parent_review`, and name the drift. The parent runs the plates gate after all assets exist; report `unscored` until a gate score is available.
  
  Do not redesign. Do not add objects, restyle, or reinterpret; the comp was approved as it is. Do not touch the page code, the spec, or the comp. Do not produce anything the spec does not list; a region the parent forgot goes back as a one-line note, not a plate.
+@@ -40,3 +40,5 @@ Do not redesign. Do not add objects, restyle, or reinterpret; the comp was appro
+ ## Output Contract
+ 
+ Return one line per raster region: `<id> <plate path> <WxH> <score%|unscored> <accepted|needs_parent_review|blocked> <one-line note or ->`. Then `blockers` (missing spec, missing comp, no image capability, exhausted key) and `assumptions`, each global and minimal. Nothing else: no summary, no praise, no implementation advice. The parent runs `impeccable build-phase advance` to verify the plates against the same spec; a visual acceptance does not override a failing gate.
++
++<!-- Modified by vincentius-marketplace; see THIRD_PARTY_NOTICES.md -->
 diff --git a/a/skill/reference/doctor.md b/b/skill/reference/doctor.md
-index c7933af..f8d6fc9 100644
+index c7933af..7844f42 100644
 --- a/a/skill/reference/doctor.md
 +++ b/b/skill/reference/doctor.md
 @@ -6,7 +6,7 @@ This is maintenance, not design. Do not redesign anything, do not open files out
@@ -37,8 +43,14 @@ index c7933af..f8d6fc9 100644
  - **`mention`** needs the user to know but not to decide anything now. State each one in a sentence with its offered fix.
  - **`route`** needs a specific command. Name the command and the gap it would close. Run it only if the user asks in this turn; `init` and `document` are conversations, not repairs you perform unattended.
  
+@@ -52,3 +52,5 @@ The same restraint applies to `workspace-context-inherited`. Inheritance is a de
+ ## Opting out of the boot check
+ 
+ `impeccable context` reports the cheap subset of these findings at session start, throttled to once a week per project. Set `"stalenessCheck": false` in `.impeccable/config.json` to silence that, or `IMPECCABLE_NO_STALENESS_CHECK=1` for one session. This command still works with the check disabled, and that is the combination to suggest for a user who wants the report only when they ask for it.
++
++<!-- Modified by vincentius-marketplace; see THIRD_PARTY_NOTICES.md -->
 diff --git a/a/skill/reference/hooks.md b/b/skill/reference/hooks.md
-index 7c8093b..01691b1 100644
+index 7c8093b..4b9dc03 100644
 --- a/a/skill/reference/hooks.md
 +++ b/b/skill/reference/hooks.md
 @@ -12,7 +12,7 @@ This command toggles the hook **per project** by editing `.impeccable/config.jso
@@ -59,8 +71,14 @@ index 7c8093b..01691b1 100644
  - Reach for `ignore-file <path>` only when the whole file is out of scope for design review: a fixture, a generated artifact, a deliberate slop demo. It silences every rule for that file permanently, including rules that have not been written yet. A real UI surface with one noisy rule wants the file-scoped value ignore above.
  - Use `ignore-rule <id>` only when the user asks to suppress that whole rule across the project. For broad overused-font suppression, use `ignore-rule overused-font --all-values` only when the user asks to ignore overused fonts generally.
  - Prefer config ignores (the commands above) by default; they keep suppressions in one reviewable place. Reach for an inline comment only when the waiver must travel with a single file that leaves the repo (a generated/exported standalone document, an emailed HTML file). The supported marker is `impeccable-disable <rule>` (whole file) or `impeccable-disable-line` / `impeccable-disable-next-line` (one line), in any comment syntax, with an optional reason after `:` or `--`. The detector honors it by default; `--no-inline-ignores` or `--no-config` bypasses it.
+@@ -109,3 +109,5 @@ Example whole-file exception, for a file that is out of scope entirely:
+ 
+ - If `.impeccable/config.json` or `.impeccable/config.local.json` is unreadable or malformed, the hook ignores that file and uses the remaining valid config/defaults. `impeccable hooks status` will show malformed files as ignored.
+ - If the user asks to "disable the hook" globally, lead with `/impeccable hooks off` (persistent for this project; writes `hook.enabled: false` to config). The legacy `IMPECCABLE_HOOK_DISABLED=1` env var also works as a one-shot override that follows the shell.
++
++<!-- Modified by vincentius-marketplace; see THIRD_PARTY_NOTICES.md -->
 diff --git a/a/skill/reference/new-work.md b/b/skill/reference/new-work.md
-index 502af0e..f5730bc 100644
+index 502af0e..20ffc29 100644
 --- a/a/skill/reference/new-work.md
 +++ b/b/skill/reference/new-work.md
 @@ -48,7 +48,7 @@ The script deals three of your structures; the dice pick which three reach the u
@@ -72,3 +90,9 @@ index 502af0e..f5730bc 100644
  
  The execution contract, comp-led or code-led, is a workflow preference, not a per-surface decision; no round asks it. The recorded default rides every round and the page's toggle handles the exception. Read the default from `.impeccable/config.json` (`buildPath`), the gitignored `.impeccable/config.local.json` winning where one machine differs from the team's committed value; with neither, comp-led is the default whenever image generation exists. Author every direction and surface payload with `buildPath: { "value": <default>, "toggle": true }`; the page renders a footer toggle with the trade stated beside it, and the ANSWER returns `buildPath` plus `buildPathFlipped`. A flipped value binds that session only and is never written back, with one exception, the only question this preference ever earns inside a round (init records it up front on projects that get the chance): when `buildPathFlipped` comes back true on a project that records no `buildPath` at all, ask once after the round closes whether to keep it as the standing default. Either answer writes `.impeccable/config.json`; the answer picks the value, never whether to record one. Yes writes the flipped value; "no, just this once" writes the value they flipped away from, the standing default they just confirmed by declining. Ask on the flip, never on the untouched default: a user who left the toggle alone told you nothing. A declined offer nothing writes down is an offer the next session makes again. When the user asks in words to change the standing default, update the file without asking. **Comp-led**: the chosen card's comp is law, generated before building when it does not yet exist, and the finish review audits the build against it; boldest composition on the table, fix rounds expected, and the comp is non-optional, no silent skipping. **Code-led**: no comp of this page and no apology for it; the QUALITY BAR boards still calibrate finish, and the ambition moves into the written contract, the FIRST VIEWPORT block plus a named signature interaction and motion grammar, which the finish reviewer audits in behavior; code-led is not a discount on commitment. A code-led round still declares each card's comp path as a flip reserve: when the user flips the toggle to comp mid-round, `--wait` returns once with BUILD PATH FLIPPED while the page shimmers the slots; generate each open card's comp into its declared path then, lead first, and wait again. The flip back is free, and a comp that already rendered rides at the finish review as the critique reference. Without image generation there is no toggle and no choice: code-led is the only path, stated in one line rather than asked. The old two-card execution-contract round is retired; `followup: true` remains the general mechanism for delivering any later round over the same table via `--update`.
  
+@@ -145,3 +145,5 @@ A rebuild and a fix round share one asset rule: a raster either round creates or
+ Report the final verdict under the reviewer's own disposition word and at its actual scope. A verdict pass scores the listed fixes and nothing else: "the reviewer scored all three fixes resolved" is a claim it supports, "no material issues remain" is not. A table with open material findings is never announced as a pass, never softened, and never dressed as whole-surface approval when only a fix list was scored. When the user answers a ship with evidence against it, their own screenshot, a named mismatch with the comp, that evidence outranks every capture you made: put their material in the packet and spawn a fresh reviewer for a new full review. Patching inline and self-certifying is how a rejected page ships twice.
+ 
+ After the last correction, spawn the shipped documenter, `impeccable-documenter` (`impeccable_documenter` in codex), with the project root, artifact path, direction contract, PRODUCT.md, [document.md](document.md), and write boundary. Without subagents, load [degraded/documenter.md](degraded/documenter.md) and [document.md](document.md) before writing. Verify the outcome: new worlds and approved system changes require token-bearing DESIGN.md **and** `.impeccable/design.json`, not prose alone. Ordinary extensions compare the finished build against the incumbent system, preserve its files, and report the evidence checked; report pre-existing drift without repairing it unasked. Recheck after later edits. Finish only when review and documentation are complete.
++
++<!-- Modified by vincentius-marketplace; see THIRD_PARTY_NOTICES.md -->

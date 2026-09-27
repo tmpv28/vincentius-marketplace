@@ -15,14 +15,23 @@
       "sha": "cd12f8660e2dde57b9615c8a6b8ea674101f9cfc",
       "date": "2026-09-09"
     },
+    "upstreamSha256": "cf3d602ce4fa30984b6720808b7542966daad3cc077cd785cb4ae24261f5ca74",
+    "executables": [
+      "skill/scripts/impeccable"
+    ],
     "license": "Apache-2.0",
     "licenseFiles": [
       "LICENSE",
       "NOTICE.md"
     ],
     "patches": [
-      "001-pnpm-consent-no-sandbox-evasion.patch"
+      "001-pnpm-consent-no-sandbox-evasion.patch",
+      "002-pin-engine-sha256.patch"
     ],
+    "patchNotes": {
+      "001-pnpm-consent-no-sandbox-evasion.patch": "`npx impeccable` and `${CLAUDE_PLUGIN_ROOT}` paths replaced by the vendored launcher (the file name says pnpm; the launcher is what replaced npx); doctor states what `--fix` will change and waits for consent; the advice to route around a sandboxed shell removed; each changed file carries a modification notice",
+      "002-pin-engine-sha256.patch": "both launchers verify a downloaded engine against the sha256 pinned per version and asset from vendor.json (`impeccable-engine.assetSha256`), never the release's `.sha256` sidecar or `IMPECCABLE_DOWNLOAD_BASE`; an asset without a pinned value is refused"
+    },
     "invocation": "auto",
     "notes": "Setup runs the engine every session; the engine is its own entry. Upstream hooks are not vendored; turn them on per project with /impeccable hooks on.",
     "reviewed": "2026-09-27"
@@ -35,14 +44,20 @@
       "date": "2026-09-08"
     },
     "asset": "impeccable-windows-x64.exe",
-    "sha256": "477e544fc8880a5e82e427490cb9a5f5adab480c0e02966d33fd50772b531c71",
+    "assetSha256": {
+      "impeccable-darwin-arm64": "0d48b6e16aa97664fdbe607d5da9ae320e389a1843e0ff1328f8c2530530320d",
+      "impeccable-darwin-x64": "153971b0c00719dff9ebac13370cb7dbbbe12838b696fbaf3f7ab0b1b3726b52",
+      "impeccable-linux-arm64": "bc4fa28bc8ccbb018795a99a4ece95ada898a6f1885f14281389d0e6ef2a2f98",
+      "impeccable-linux-x64": "cf5231a4b1ae66996c85b033800b1dad0797e590eae2f21ef2579430af187f19",
+      "impeccable-windows-x64.exe": "477e544fc8880a5e82e427490cb9a5f5adab480c0e02966d33fd50772b531c71"
+    },
     "signer": "CN=\"Renaissance Geek, Inc.\" via Microsoft ID Verified CS EOC CA 03; Authenticode Valid; matches the publisher asserted by upstream .github/workflows/release-engine.yml",
     "license": "Apache-2.0",
     "install": {
       "path": "~/.impeccable/bin/engine-v0.1.5/impeccable-windows-x64.exe",
       "env": "IMPECCABLE_BIN"
     },
-    "notes": "No build attestation (issue #813). Verified by Authenticode signature and the release sha256 at download; both recorded here.",
+    "notes": "No build attestation (issue #813). Verified by Authenticode signature and the release sha256 at download; both recorded here. assetSha256 holds every platform asset's sha256 (GitHub's asset digest, confirmed by a local hash); impeccable patch 002 embeds the same values in the launchers, so they change together.",
     "reviewed": "2026-09-27"
   },
   "emil-design-eng": {
@@ -59,6 +74,8 @@
       "sha": "85e8e2363b713506e1d5b6e07a0eb2da66be1bc3",
       "date": "2026-09-15"
     },
+    "upstreamSha256": "7453b7eb6c1968e65ddb18eb3bbd5a0a06e63464be697b4d185f0212e36f10eb",
+    "executables": [],
     "license": "MIT",
     "licenseFiles": [
       "LICENSE"
@@ -66,6 +83,9 @@
     "patches": [
       "001-description-use-when.patch"
     ],
+    "patchNotes": {
+      "001-description-use-when.patch": "description rewritten to state when the skill applies"
+    },
     "invocation": "auto",
     "reviewed": "2026-09-27"
   },
@@ -83,6 +103,8 @@
       "sha": "85e8e2363b713506e1d5b6e07a0eb2da66be1bc3",
       "date": "2026-09-15"
     },
+    "upstreamSha256": "87e6b6c5d1ddcfa5c55b371d7013b91f5dc46a0853e8cabab061aba9ae42862a",
+    "executables": [],
     "license": "MIT",
     "licenseFiles": [
       "LICENSE"
@@ -105,6 +127,8 @@
       "sha": "85e8e2363b713506e1d5b6e07a0eb2da66be1bc3",
       "date": "2026-09-15"
     },
+    "upstreamSha256": "5519e1423fd4418f2de0398fe0428a5e4f593b2e2e92bd630adf6a852898745d",
+    "executables": [],
     "license": "MIT",
     "licenseFiles": [
       "LICENSE"
@@ -112,6 +136,9 @@
     "patches": [
       "001-manual-only.patch"
     ],
+    "patchNotes": {
+      "001-manual-only.patch": "set to manual invocation (`disable-model-invocation: true`)"
+    },
     "invocation": "manual",
     "reviewed": "2026-09-27"
   },
@@ -129,6 +156,10 @@
       "sha": "5bf4e78011075bcfc0dc295f0724994cd123ee71",
       "date": "2026-09-19"
     },
+    "upstreamSha256": "655906c044841c1b0e553afdfc1e91f084cac8e992fd12276f0f47f67054dae1",
+    "executables": [
+      "skill/find-polluter.sh"
+    ],
     "license": "MIT",
     "licenseFiles": [
       "LICENSE"
@@ -136,6 +167,9 @@
     "patches": [
       "001-tv-references.patch"
     ],
+    "patchNotes": {
+      "001-tv-references.patch": "references to the uninstalled superpowers sibling skills replaced by TV 09 and the project gate; `npm test` replaced by `pnpm test`"
+    },
     "invocation": "auto",
     "reviewed": "2026-09-27",
     "exclude": [
@@ -161,6 +195,8 @@
       "sha": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
       "date": "2026-09-18"
     },
+    "upstreamSha256": "e2482b4df2585afb14f4c10e770d496a2826ce0fc491699ff4a219ad609e10ae",
+    "executables": [],
     "license": "MIT",
     "licenseFiles": [
       "LICENSE"
@@ -168,6 +204,9 @@
     "patches": [
       "001-manual-only.patch"
     ],
+    "patchNotes": {
+      "001-manual-only.patch": "set to manual invocation (`disable-model-invocation: true`)"
+    },
     "invocation": "manual",
     "reviewed": "2026-09-27"
   },
@@ -185,6 +224,8 @@
       "sha": "b24e68a965dc4b5bd2cc41dc60c094a26a9379ce",
       "date": "2026-09-18"
     },
+    "upstreamSha256": "7716f90c4dfda72fa65ac2d5739df994b3d8fd5ce044dce03d2e903342cd92f6",
+    "executables": [],
     "license": "MIT",
     "licenseFiles": [
       "LICENSE"
@@ -192,6 +233,9 @@
     "patches": [
       "001-claude-skill-dir.patch"
     ],
+    "patchNotes": {
+      "001-claude-skill-dir.patch": "`${SKILL_DIR}`, which Claude Code does not set, replaced by `${CLAUDE_SKILL_DIR}`"
+    },
     "invocation": "auto",
     "notes": "Its xctrace scripts run on macOS only; on Windows the skill reviews and writes SwiftUI.",
     "reviewed": "2026-09-27"
@@ -210,11 +254,16 @@
       "sha": "063bee94c3f4df8453406c830b0a7df0f2860278",
       "date": "2026-08-28"
     },
+    "upstreamSha256": "61bf6e46319ec5d68599adc10e584ef9f9075f38f2e6972061dcd56dffdf1ccf",
+    "executables": [],
     "license": "MIT (declared in SKILL.md frontmatter; the repository has no LICENSE file)",
     "licenseFiles": [],
     "patches": [
       "001-pnpm-dlx.patch"
     ],
+    "patchNotes": {
+      "001-pnpm-dlx.patch": "`npx svgo` replaced by `pnpm dlx svgo`"
+    },
     "invocation": "auto",
     "notes": "Mostly Next.js and server-component rules; the react and typescript packs win where they differ.",
     "reviewed": "2026-09-27"
@@ -233,6 +282,8 @@
       "sha": "5217fb45be2c0b302f29c9cd31cbd3237501c684",
       "date": "2026-09-20"
     },
+    "upstreamSha256": "2cc126afecf6ac260bf2a1e971aa2a02f15cdad89d277383d912eb48dbfd93b3",
+    "executables": [],
     "license": "MIT",
     "licenseFiles": [
       "LICENSE"
@@ -241,6 +292,10 @@
       "001-manual-only.patch",
       "002-pnpm-and-tv-precedence.patch"
     ],
+    "patchNotes": {
+      "001-manual-only.patch": "set to manual invocation (`disable-model-invocation: true`)",
+      "002-pnpm-and-tv-precedence.patch": "npm, yarn and `@latest` installs replaced by pnpm; an available image tool is preferred, no longer mandatory; a note that the TV styles and scss packs win over its Tailwind and shadcn defaults"
+    },
     "invocation": "manual",
     "notes": "Its Tailwind and shadcn defaults contradict the styles and scss packs, so it only runs when typed.",
     "reviewed": "2026-09-27"

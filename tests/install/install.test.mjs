@@ -1,7 +1,7 @@
-import { describe, it, before } from "node:test";
+import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, lstatSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, lstatSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,14 @@ import { fileURLToPath } from "node:url";
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const install = (target, ...flags) => spawnSync(process.execPath, [join(REPO, "install.mjs"), ...flags],
   { env: { ...process.env, CLAUDE_CONFIG_DIR: target, CLAUDE_PLUGIN_ROOT: "" }, encoding: "utf8" });
-const fresh = () => mkdtempSync(join(tmpdir(), "vm-install-"));
+const installFrom = (cwd, configDir, ...flags) => spawnSync(process.execPath, [join(REPO, "install.mjs"), ...flags],
+  { cwd, env: { ...process.env, CLAUDE_CONFIG_DIR: configDir }, encoding: "utf8" });
+const settingsOf = (target) => JSON.parse(readFileSync(join(target, "settings.json"), "utf8"));
+const commandsOf = (groups = []) => groups.flatMap((g) => g.hooks.map((h) => [h.command, ...(h.args || [])].join(" ")));
+const backupsOf = (dir, name) => readdirSync(dir).filter((f) => f.startsWith(`${name}.bak-`));
+const created = [];
+const fresh = () => { const dir = mkdtempSync(join(tmpdir(), "vm-install-")); created.push(dir); return dir; };
+after(() => { for (const dir of created) rmSync(dir, { recursive: true, force: true }); });
 const manifestOf = (target) => JSON.parse(readFileSync(join(target, "vincentius-marketplace.installed.json"), "utf8"));
 const walk = (dir, out = []) => {
   for (const name of readdirSync(dir)) {
@@ -28,7 +35,7 @@ describe("install.mjs", () => {
 
   describe("a fresh install", () => {
     it("writes every manifest file, as real files", () => {
-      const { files } = manifestOf(target);
+      const files = Object.keys(manifestOf(target).files);
       assert.ok(files.length > 300);
       for (const rel of files) {
         assert.ok(existsSync(join(target, rel)), rel);
@@ -67,6 +74,7 @@ describe("install.mjs", () => {
     it("records the route and the source", () => {
       const manifest = manifestOf(target);
       assert.equal(manifest.route, "clone");
+      assert.match(Object.values(manifest.files)[0], /^[0-9a-f]{64}$/);
       assert.ok(manifest.source.endsWith("vincentius-marketplace"));
     });
 
@@ -105,11 +113,39 @@ describe("install.mjs", () => {
     mkdirSync(join(other, "skills", "retired"), { recursive: true });
     writeFileSync(join(other, "skills", "retired", "SKILL.md"), "old");
     writeFileSync(join(other, "skills", "mine.md"), "the user's own file");
-    manifest.files.push("skills/retired/SKILL.md");
+    manifest.files["skills/retired/SKILL.md"] = null;
     writeFileSync(join(other, "vincentius-marketplace.installed.json"), JSON.stringify(manifest));
     install(other);
     assert.equal(existsSync(join(other, "skills", "retired", "SKILL.md")), false);
     assert.equal(readFileSync(join(other, "skills", "mine.md"), "utf8"), "the user's own file");
+    assert.equal(existsSync(join(other, "skills", "retired")), false);
+  });
+
+  it("backs up a kit file you edited before an update replaces it", () => {
+    const other = fresh();
+    install(other);
+    const core = join(other, "rules", "tv", "core.md");
+    writeFileSync(core, readFileSync(core, "utf8") + "\nmy note\n");
+    const result = install(other);
+    assert.equal(result.status, 0);
+    assert.doesNotMatch(readFileSync(core, "utf8"), /my note/);
+    const [kept] = backupsOf(join(other, "rules", "tv"), "core.md");
+    assert.match(readFileSync(join(other, "rules", "tv", kept), "utf8"), /my note/);
+  });
+
+  it("backs up a file it takes over with --force", () => {
+    const other = fresh();
+    mkdirSync(join(other, "skills", "grilling"), { recursive: true });
+    writeFileSync(join(other, "skills", "grilling", "SKILL.md"), "my own grilling skill");
+    assert.equal(install(other, "--force").status, 0);
+    const [kept] = backupsOf(join(other, "skills", "grilling"), "SKILL.md");
+    assert.equal(readFileSync(join(other, "skills", "grilling", kept), "utf8"), "my own grilling skill");
+  });
+
+  it("records the plugin route when the setup skill says so", () => {
+    const other = fresh();
+    install(other, "--route=plugin");
+    assert.equal(manifestOf(other).route, "plugin");
   });
 
   it("uninstalls exactly the manifest's files", () => {
@@ -120,6 +156,29 @@ describe("install.mjs", () => {
     assert.equal(existsSync(join(other, "rules", "tv", "core.md")), false);
     assert.equal(existsSync(join(other, "vincentius-marketplace.installed.json")), false);
     assert.equal(readFileSync(join(other, "keep-me.txt"), "utf8"), "mine");
+    assert.equal(existsSync(join(other, "rules")), false);
+  });
+
+  it("keeps a backup of an edited file it uninstalls", () => {
+    const other = fresh();
+    install(other);
+    const agent = join(other, "agents", "tv-mechanical.md");
+    writeFileSync(agent, "my version");
+    install(other, "--uninstall");
+    assert.equal(existsSync(agent), false);
+    const [kept] = backupsOf(join(other, "agents"), "tv-mechanical.md");
+    assert.equal(readFileSync(join(other, "agents", kept), "utf8"), "my version");
+  });
+
+  it("removes its hooks and status line from settings.json on uninstall, and only those", () => {
+    const other = fresh();
+    writeFileSync(join(other, "settings.json"), JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: "echo mine" }] }] } }));
+    install(other, "--apply-settings");
+    install(other, "--uninstall");
+    const settings = settingsOf(other);
+    assert.deepEqual(commandsOf(settings.hooks.Stop), ["echo mine"]);
+    assert.equal(settings.hooks.PreToolUse, undefined);
+    assert.equal(settings.statusLine, undefined);
   });
 
   describe("--apply-settings", () => {
@@ -145,6 +204,38 @@ describe("install.mjs", () => {
       assert.equal(backups(), before);
       const settings = JSON.parse(readFileSync(join(other, "settings.json"), "utf8"));
       assert.equal(settings.hooks.PreToolUse.length, 2);
+    });
+
+    it("treats another spelling of the same config dir as the same hooks", () => {
+      const other = fresh();
+      install(other, "--apply-settings");
+      install(other + "/", "--apply-settings");
+      assert.equal(settingsOf(other).hooks.PreToolUse.length, 2);
+    });
+
+    it("writes absolute hook paths for a relative config dir", () => {
+      const parent = fresh();
+      installFrom(parent, "rel", "--apply-settings");
+      const [command] = commandsOf(settingsOf(join(parent, "rel")).hooks.Stop);
+      assert.ok(command.includes(`${parent.split("\\").join("/")}/rel/hooks/tv/std-check-gate.js`), command);
+    });
+
+    it("keeps a hook you added in the same group as a kit hook", () => {
+      const other = fresh();
+      install(other, "--apply-settings");
+      const settings = settingsOf(other);
+      settings.hooks.Stop[0].hooks.push({ type: "command", command: "echo user-added" });
+      writeFileSync(join(other, "settings.json"), JSON.stringify(settings));
+      install(other, "--apply-settings");
+      assert.ok(commandsOf(settingsOf(other).hooks.Stop).includes("echo user-added"));
+    });
+
+    it("keeps your status line and says so", () => {
+      const other = fresh();
+      writeFileSync(join(other, "settings.json"), JSON.stringify({ statusLine: { type: "command", command: "my-line" } }));
+      const result = install(other, "--apply-settings");
+      assert.equal(settingsOf(other).statusLine.command, "my-line");
+      assert.match(result.stdout, /kept your own value for: statusLine/);
     });
 
     it("adds the personal permissions only with --personal", () => {
