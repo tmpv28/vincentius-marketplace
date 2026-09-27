@@ -4,9 +4,13 @@ paths:
   - "**/pnpm-workspace.yaml"
   - "**/eslint.config.*"
   - "**/.prettierrc*"
+  - "**/prettier.config.*"
   - "**/.stylelintrc*"
+  - "**/stylelint.config.*"
+  - "**/.lintstagedrc*"
   - "**/.husky/**"
   - "**/tsconfig*.json"
+  - "**/vite.config.*"
 ---
 
 # TV-STANDARD: Node tooling
@@ -215,6 +219,13 @@ ground, or they move to `@stylistic`.
 
 An `eslint-disable` is allowed and gets a one-line reason. A file-top stack of them means the
 file needs splitting, not more disables.
+
+## No path aliases (TV 10)
+
+`resolve.alias` is empty, `tsconfig.paths` is empty. Imports are deep and relative.
+
+Aliases hide how far away something is. `../../../../` is a design smell you can see from across
+the room, and `@/commons/...` is the same smell with the smell removed.
 
 ## Commands (TV 10)
 

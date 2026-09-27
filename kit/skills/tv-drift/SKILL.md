@@ -16,7 +16,7 @@ tell me about the drift instead of silently fixing it. This skill is the telling
 2. Compare against the template at `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/templates/react-ts-starter`:
    top-level `src/` folders, the typeChecks kernel, `commons/constants/shared.ts`, the response object system,
    the styles callers, the route table, the command vocabulary in `package.json`, `.husky/pre-commit`.
-3. Scan the code for the tells in the react pack and the rules that tooling cannot catch. Use Grep, then Read
+3. Scan the code for the tells in the core ("What I will notice immediately") and the rules that tooling cannot catch. Use Grep, then Read
    each hit before reporting it:
    - types named `I...`, `...Props`, or without the `Type` suffix
    - `index.ts` barrels and path aliases in `tsconfig.json` or `vite.config.*`

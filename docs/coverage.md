@@ -10,7 +10,7 @@ or were restatements of a section that owns the topic.
 | AGENTS.md | Mandatory load | not a rule: rewritten in core.md (global scope, core plus packs, read before create) |
 | AGENTS.md | The non-negotiables | not a rule: restates 00, which is in core.md; 00 owns the topic |
 | AGENTS.md | What to do when you are unsure | core.md |
-| AGENTS.md | What I will notice immediately | react.md |
+| AGENTS.md | What I will notice immediately | core.md |
 | AGENTS.md | Process rules | core.md |
 | AGENTS.md | Dependencies | not a rule: restates 11 Dependencies, which is in core.md; 11 owns the topic |
 | README.md | (intro) | not a rule: repository description, now in docs/migration.md |
@@ -63,21 +63,21 @@ or were restatements of a section that owns the topic.
 | standards/00-non-negotiables.md | 8. Types describe reality | core.md |
 | standards/00-non-negotiables.md | 9. Errors are handled or they propagate | core.md |
 | standards/00-non-negotiables.md | 10. Nothing is added that was not asked for | core.md |
-| standards/01-project-anatomy.md | The tree | react.md |
-| standards/01-project-anatomy.md | The layer hierarchy | react.md |
-| standards/01-project-anatomy.md | The `modules/` convention | react.md |
-| standards/01-project-anatomy.md | Features | react.md |
-| standards/01-project-anatomy.md | Commons | react.md |
-| standards/01-project-anatomy.md | Systems | react.md |
-| standards/01-project-anatomy.md | Imports | react.md |
-| standards/01-project-anatomy.md | `subComponents/` | react.md |
+| standards/01-project-anatomy.md | The tree | typescript.md |
+| standards/01-project-anatomy.md | The layer hierarchy | typescript.md |
+| standards/01-project-anatomy.md | The `modules/` convention | typescript.md |
+| standards/01-project-anatomy.md | Features | typescript.md |
+| standards/01-project-anatomy.md | Commons | typescript.md |
+| standards/01-project-anatomy.md | Systems | typescript.md |
+| standards/01-project-anatomy.md | Imports | typescript.md |
+| standards/01-project-anatomy.md | `subComponents/` | typescript.md |
 | standards/02-naming.md | (intro) | core.md |
-| standards/02-naming.md | The suffix rules | react.md |
-| standards/02-naming.md | Casing | react.md |
+| standards/02-naming.md | The suffix rules | typescript.md |
+| standards/02-naming.md | Casing | core.md |
 | standards/02-naming.md | Booleans | core.md |
-| standards/02-naming.md | Handlers | react.md |
-| standards/02-naming.md | Hooks | react.md |
-| standards/02-naming.md | The `API_` prefix | react.md |
+| standards/02-naming.md | Handlers | typescript.md |
+| standards/02-naming.md | Hooks | typescript.md |
+| standards/02-naming.md | The `API_` prefix | typescript.md |
 | standards/02-naming.md | Constants | typescript.md |
 | standards/02-naming.md | Variables | core.md |
 | standards/02-naming.md | Length is not a cost | core.md |
@@ -112,24 +112,24 @@ or were restatements of a section that owns the topic.
 | standards/04-react-components.md | Small idioms that add up | react.md |
 | standards/04-react-components.md | Accessibility | accessibility.md |
 | standards/04-react-components.md | What never appears in a component | react.md |
-| standards/05-state-and-contexts.md | No state library | react.md |
-| standards/05-state-and-contexts.md | The four-file context | react.md |
-| standards/05-state-and-contexts.md | The accessor hook | react.md |
-| standards/05-state-and-contexts.md | Default values are real | react.md |
-| standards/05-state-and-contexts.md | Split state from actions | react.md |
-| standards/05-state-and-contexts.md | Refs for "current at call time, stable by identity" | react.md |
-| standards/05-state-and-contexts.md | Decompose large contexts into controllers | react.md |
-| standards/05-state-and-contexts.md | Composition site | react.md |
-| standards/05-state-and-contexts.md | Local state | react.md |
-| standards/06-api-layer.md | (intro) | react.md |
-| standards/06-api-layer.md | The three layers | react.md |
-| standards/06-api-layer.md | The controller table | react.md |
+| standards/05-state-and-contexts.md | No state library | typescript.md |
+| standards/05-state-and-contexts.md | The four-file context | typescript.md |
+| standards/05-state-and-contexts.md | The accessor hook | typescript.md |
+| standards/05-state-and-contexts.md | Default values are real | typescript.md |
+| standards/05-state-and-contexts.md | Split state from actions | typescript.md |
+| standards/05-state-and-contexts.md | Refs for "current at call time, stable by identity" | typescript.md |
+| standards/05-state-and-contexts.md | Decompose large contexts into controllers | typescript.md |
+| standards/05-state-and-contexts.md | Composition site | typescript.md |
+| standards/05-state-and-contexts.md | Local state | typescript.md |
+| standards/06-api-layer.md | (intro) | typescript.md |
+| standards/06-api-layer.md | The three layers | typescript.md |
+| standards/06-api-layer.md | The controller table | typescript.md |
 | standards/06-api-layer.md | The response object | typescript.md |
 | standards/06-api-layer.md | The type guard | typescript.md |
-| standards/06-api-layer.md | The endpoint hook | react.md |
-| standards/06-api-layer.md | Folder shape | react.md |
-| standards/06-api-layer.md | Validation | react.md |
-| standards/06-api-layer.md | Double-submit is handled once | react.md |
+| standards/06-api-layer.md | The endpoint hook | typescript.md |
+| standards/06-api-layer.md | Folder shape | typescript.md |
+| standards/06-api-layer.md | Validation | typescript.md |
+| standards/06-api-layer.md | Double-submit is handled once | typescript.md |
 | standards/07-styling-scss.md | (intro) | scss.md |
 | standards/07-styling-scss.md | The callers pattern | scss.md |
 | standards/07-styling-scss.md | Class naming | styles.md |
@@ -170,7 +170,7 @@ or were restatements of a section that owns the topic.
 | standards/10-tooling-and-checks.md | Formatting and linting | node-tooling.md |
 | standards/10-tooling-and-checks.md | Project-level lint rules | core.md |
 | standards/10-tooling-and-checks.md | The generators are the real enforcement | core.md |
-| standards/10-tooling-and-checks.md | No path aliases | typescript.md |
+| standards/10-tooling-and-checks.md | No path aliases | node-tooling.md |
 | standards/10-tooling-and-checks.md | Commands | node-tooling.md |
 | standards/11-git-and-delivery.md | Commit messages | core.md |
 | standards/11-git-and-delivery.md | Campaign tags | core.md |

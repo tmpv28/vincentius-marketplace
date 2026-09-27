@@ -13,18 +13,21 @@ you read files.
 
 - IMPORTANT: This standard applies wherever I work: every repo, every language, no opt-out per
   project, per file, or per "this is just a quick script".
-- The core (this file) loads in full in every session. Each language pack loads in full when a file
-  of its language is read: typescript, react, accessibility, styles, scss, testing, node-tooling.
+- The core (this file) loads in full in every session. Each pack loads in full when a file matching
+  its `paths:` is read: typescript, react, accessibility, styles, scss, testing, node-tooling.
+  docs/rules.md lists every pack's paths.
   Nothing inside a pack is sampled. The rules interlock, and half of them only make sense next to
   the one before.
-- IMPORTANT: Before creating the first file of a language in a session, read an existing file of
-  that language, or the template's, so its pack is loaded before anything is written.
+- IMPORTANT: Before creating a file, read an existing file that matches the same pack's paths, or
+  its counterpart in the template, so the pack is loaded before anything is written. Creating a file
+  does not load its pack; only reading one does.
 - IMPORTANT: When this standard and a framework's default disagree, this standard wins. When this
   standard and the surrounding code in the repo disagree, the surrounding code wins, and you tell
   me about the drift instead of silently fixing it.
 - IMPORTANT: When two parts of this standard disagree with each other, the precedence is: a pack
   beats the core where it is more specific; standards beat identity; identity beats checklists; and
-  the chapter that owns a topic beats any restatement of it elsewhere. Then tell me, because a
+  the chapter that owns a topic beats any restatement of it elsewhere. The TV 00 non-negotiables are
+  never overridden by a pack. Then tell me, because a
   collision means one of the two is stale and I want it fixed rather than worked around.
 
 ---
@@ -36,12 +39,31 @@ you read files.
 Exhaust, in this order, before asking me:
 
 1. The code around the thing you are changing.
-2. `standards/` and `identity/`.
+2. The core and the packs loaded for the files you are touching.
 3. The reference implementation the standard points at.
-4. The template in `templates/react-ts-starter/`.
+4. The template in `~/.claude/templates/react-ts-starter/`.
 
 Then ask. One question, specific, with the options you already considered and the one you would
 pick. Do not ask me to choose between things you can verify yourself.
+
+## What I will notice immediately (AGENTS)
+
+These are the tells. Get them wrong and the code reads as someone else's, even if it works:
+
+| Tell | Right | Wrong |
+| --- | --- | --- |
+| Type naming | `AddNoteFeatureType` | `IAddNoteFeature`, `AddNoteProps` |
+| Folder for a unit's internals | `modules/` | `helpers/`, `lib/`, `internal/` |
+| Component name | `ButtonComponent` | `Button`, `AppButton` |
+| Feature name | `AddNoteFeature` | `AddNote`, `NoteCreator` |
+| Shared abstraction | `xSystem/` | `xManager/`, `xService/`, `xEngine/` |
+| SCSS barrel | `xCaller.scss` with `@forward` | `_index.scss`, `@import` |
+| String quotes | `"double"` | `'single'` |
+| Trailing comma | none | any |
+| Separator inside a component | `//-----------` | nothing, or a paragraph of prose |
+| Empty check | `isNullOrEmpty(value)` | `!value`, `value === ""` |
+| Entry file in a unit folder | `AddNote/AddNoteFeature.tsx` | `AddNote/index.tsx`, `AddNote/AddNote.tsx` |
+| Equality on objects | `areEqual(a, b)` | `JSON.stringify(a) === JSON.stringify(b)` |
 
 ## Process rules (AGENTS)
 
@@ -73,7 +95,7 @@ time on the interesting ones. And the terminal is allowed to have a sense of hum
 
 ## Who I am, as an engineer (identity: who-i-am)
 
-This is the file that explains why everything in `standards/` is what it is. Rules you follow
+This is the file that explains why every rule in this standard is what it is. Rules you follow
 without knowing the reason are rules you abandon the first time they are inconvenient.
 
 ## I take undefined surfaces and give them structure (identity: who-i-am)
@@ -87,7 +109,7 @@ I am not at my best optimising something that already has a shape. I am at my be
 does not exist yet and someone has to decide what it is.
 
 The failure mode that comes with it, which I watch for: imposing structure earlier than the
-problem has earned it. The defence is the three-occurrences rule in `instincts.md`, and the
+problem has earned it. The defence is the three-occurrences rule in identity: instincts, and the
 willingness to copy something a third time rather than abstract it at two.
 
 ## I build the thing that builds the thing (identity: who-i-am)
@@ -405,7 +427,7 @@ into a paragraph that sounds like an answer.
 ## Instincts (identity: instincts)
 
 My default moves, and the conditions under which I deviate from them. When a decision is not
-covered by `standards/`, this is how I decide.
+covered by a rule, this is how I decide.
 
 ## Defaults (identity: instincts)
 
@@ -544,7 +566,7 @@ One line on what was wrong. One on what is true. No paragraph about being more c
 
 ## Non-negotiables (TV 00)
 
-Everything else in `standards/` is a rule. This file is the set of rules I do not trade away for
+Everything else in this standard is a rule. This file is the set of rules I do not trade away for
 a deadline, a spike, a prototype, or "we will clean it up later". There has never been a later.
 
 ## 1. Reuse before creation (TV 00)
@@ -647,6 +669,27 @@ The corollary: nothing asked for is quietly dropped either.
 
 Names are the interface. Everything in this file exists so that a name tells you what a thing is
 and where it lives without opening it.
+
+## Casing (TV 02)
+
+| Kind | Casing | Example |
+| --- | --- | --- |
+| Component / Feature / Page file and folder | PascalCase | `ButtonComponent/ButtonComponent.tsx` |
+| System folder and entry file | camelCase | `responseObjectSystem/responseObjectSystem.ts` |
+| Shared hook file | camelCase, `use` prefix | `commons/hooks/debounce/useDebounce.ts` |
+| A unit's own hook in `modules/` | camelCase, named for its job | `modules/addNoteValidations.ts` (exports `useAddNoteValidations`) |
+| Util / module file | camelCase | `equalityChecks.ts`, `payloadDataHandlers.ts` |
+| SVG file | kebab-case | `pdf-download.svg` |
+| Type / interface | PascalCase + `Type` | `NoteRowDataType` |
+| Constant | SCREAMING_SNAKE_CASE | `ADD_NOTE_FEATURE_DEFAULT_VALUES` |
+| SCSS class (component) | PascalCase block, `__element` | `.AddNoteFeature__content` |
+| SCSS utility class | snake_case | `.cursor_pointer`, `.background_color_accent` |
+| SCSS mixin | snake_case | `@mixin display_flex_column_all_center` |
+| SCSS variable | `$snake_case` | `$color_light_gray` |
+| CSS custom property | `--kebab-case` | `--color-light-gray` |
+
+The SCSS casing split is intentional: PascalCase means "this belongs to one component",
+snake_case means "this is global and composable".
 
 ## Booleans (TV 02)
 
