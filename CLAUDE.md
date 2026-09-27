@@ -9,7 +9,6 @@ into `~/.claude`.
 
 - Node 20+, no dependencies: `node:test` for tests, plain ES modules for scripts, CommonJS for hooks
 - Claude Code rules, skills, agents, hooks and a plugin bootstrap
-- `standard/`: TV-STANDARD's prose and history while the split is in progress (removed in Phase 3)
 
 ## Quick start
 
@@ -25,8 +24,9 @@ pnpm test:unit
 kit/          everything install.mjs copies: rules/tv, skills, agents, hooks/tv, settings, prompts, templates
 vendor/       external items: pristine upstream at a pinned commit, patches, licence, vendor.json
 bootstrap/    the plugin route's single setup skill
-scripts/      std-check, vendor build and check, listing budget
-tests/        unit, install and fixture suites
+personal/     the author's own settings profile and CLAUDE.md; only --personal reads it
+scripts/      std-check, vendor fetch/patch/check, notices, listing budget, shared file helpers
+tests/        unit (hooks) and install (installer, vendoring) suites
 docs/         ledger (source of truth for the build) and the documentation set
 ```
 
@@ -47,5 +47,5 @@ scripts. Commits are conventional or carry the `[marketplace]` campaign tag.
 ## Where to look before asking
 
 1. `docs/ledger.md`
-2. The plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63
-3. `standard/` (until Phase 3) or `kit/rules/tv/` (after)
+2. `docs/rules.md` and `kit/rules/tv/`: the standard itself
+3. `docs/` for how and why each part works

@@ -16,10 +16,16 @@ The monthly upstream check. Read-only unless I ask for a bump.
 2. Run `node "<source>/scripts/vendor-check.mjs"` and show the report as it prints.
 3. For each item marked update-available, read the flagged changes with `gh api` compare before saying anything
    about them: new scripts, hooks, tool grants, URLs, reasoning or override phrasing.
-4. Only when I name an item: `node "<source>/scripts/vendor-check.mjs" --bump <name>`. If its patches no longer
-   apply, it stops and restores upstream; say which patch and why.
-5. After a bump: read the diff of `vendor/<name>/upstream`, set `reviewed` in `vendor/vendor.json`, reinstall
-   with `node "<source>/install.mjs"`, and propose the commit `chore(vendor): bump <name> to <short sha>`.
+4. Only when I name an item: `node "<source>/scripts/vendor-check.mjs" --bump <name>`. It refuses while the report
+   has flags for that item; add `--accept-flags` only after I have read them and said yes. If its patches no
+   longer apply, it stops and restores upstream; say which patch and why.
+5. After a bump: read the diff of `vendor/<name>/upstream`. The installer refuses the item until `reviewed` in
+   `vendor/vendor.json` holds today's date; set it only once the diff is read. Then reinstall with
+   `node "<source>/install.mjs"`, run `node "<source>/scripts/notices.mjs"`, and propose the commit
+   `chore(vendor): bump <name> to <short sha>` with a body that says why and which flags were reviewed.
+   A binary bump (`impeccable-engine`) also needs impeccable's `002-pin-engine-sha256.patch` regenerated with
+   the new `assetSha256` values (`vendor-patch.mjs start impeccable 002-pin-engine-sha256.patch`, edit both
+   launchers, `save`); until then the launcher refuses the new engine and the integrity test names the mismatch.
 
 ## Rules
 

@@ -1,4 +1,4 @@
-# Checklist — new project
+# Checklist: new project
 
 Work top to bottom. Nothing here is optional.
 

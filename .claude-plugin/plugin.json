@@ -1,8 +1,9 @@
 {
   "name": "vincentius",
-  "version": "0.1.0",
   "description": "Bootstrap for vincentius-marketplace: /vincentius:setup installs the TV rules, skills, agents and hooks into ~/.claude.",
-  "author": { "name": "Vincentius" },
+  "author": {
+    "name": "Vincentius"
+  },
   "license": "MIT",
   "homepage": "https://github.com/tmpv28/vincentius-marketplace",
   "skills": "./bootstrap/skills"

@@ -1,6 +1,6 @@
 {
   "name": "vincentius-marketplace",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Claude Code kit | TV-STANDARD as rules, skills, agents and hooks, plus vendored skills with tracked upstreams",
   "license": "MIT",
@@ -12,8 +12,9 @@
     "std:check": "node scripts/std-check.mjs",
     "test:unit": "node --test tests/unit/*.test.mjs",
     "test:install": "node --test tests/install/*.test.mjs",
-    "vendor:build": "node scripts/vendor-build.mjs",
     "vendor:check": "node scripts/vendor-check.mjs",
-    "budget": "node scripts/listing-budget.mjs"
+    "budget": "node scripts/listing-budget.mjs",
+    "vendor:patch": "node scripts/vendor-patch.mjs",
+    "notices": "node scripts/notices.mjs"
   }
 }

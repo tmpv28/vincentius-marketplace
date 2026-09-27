@@ -1,4 +1,4 @@
-# Checklist — reviewing code
+# Checklist: reviewing code
 
 Read in this order. The order is the priority: a duplication problem matters more than a naming
 problem, and both matter more than anything the formatter owns.

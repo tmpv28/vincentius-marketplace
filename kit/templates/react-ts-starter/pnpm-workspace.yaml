@@ -1,3 +1,7 @@
+# Nothing younger than 7 days (in minutes) is resolved: a compromised release is usually caught and
+# pulled within that window. Carried here so the rule holds on any machine, not only one with a global setting.
+minimumReleaseAge: 10080
+
 # Denied rather than allowed: the gate, the suite and the production build all pass without
 # these postinstall scripts, because each package resolves its binary from a platform optional
 # dependency instead. pnpm 9 ran them implicitly; pnpm 12 asks. Flip one to true only if a

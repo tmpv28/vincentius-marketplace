@@ -1,4 +1,4 @@
-# Checklist — before opening a PR
+# Checklist: before opening a PR
 
 ---
 

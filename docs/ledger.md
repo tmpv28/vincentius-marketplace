@@ -18,7 +18,7 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
 | 3 | Split the standard | done | tag hold/phase-3 | core 12.9k tok; typescript 5.4k; react 13.1k; accessibility 0.6k; styles 1.4k; scss 1.4k; testing 1.8k; node-tooling 2.8k (chars/4). 175 sections, 2440 lines verified verbatim |
 | 4 | Vendor everything | done | tag hold/phase-4 | 9 skills vendored at confirmed pins, 9 patches, engine verified; vendor-check live |
 | 5 | Build the tooling | done | tag hold/phase-5 | install.mjs, plugin bootstrap, 11 tv skills, 2 agents, 5 hooks, vendor-check, listing budget; 109 unit + install tests |
-| 6 | Review until clean | pending | | |
+| 6 | Review until clean | in progress | see git log | pass 1: six reviews (rules, TV conformance, hooks, installer, vendoring, security); all blocking and recommended findings fixed |
 | 7 | Test everything | pending | | |
 | 8 | Write the documentation | pending | | |
 | 9 | Install here and migrate | pending | | |
@@ -59,7 +59,7 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
 - Planned `css.md` and `html.md` became `styles.md` (scss + css) and `accessibility.md` (tsx, jsx, html, vue,
   svelte): each section can live in exactly one file, and both HTML and React files need the
   accessibility rules, both SCSS and CSS the language-free styling rules.
-- AGENTS "tells" table went to react.md: every row is a React/TypeScript/SCSS tell.
+- AGENTS "tells" table went to react.md at first; moved to core in Phase 6 (see Corrections).
 - Drift settled: 04 fence and missing heading; 08 `.claude/memory/` replaced by auto memory; template
   CLAUDE.md (ESLint line, four-file contexts, classNames object, staircase as preference, real paths,
   test:unit); template std:check gained the em-dash gate (D7); `.impeccable/` ignored.
@@ -83,7 +83,7 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
 - Template: unused `lodash`, `@types/lodash` and `@testing-library/react` removed (TV 03, TV 09); template std:check passes.
 - Listing today (this machine, 2% budget): 80 invocable skills, ~7k tokens; the kit adds 13 skills, ~1k tokens.
 - `claude plugin validate .` passes for the marketplace manifest.
-- The final ask rules (git push, pnpm add/install/update/dlx, npm, npx) live in `kit/settings/personal.snippet.json`;
+- The final ask rules (git push, pnpm add/install/update/dlx, npm, npx) live in `personal/settings.snippet.json`;
   they are applied at the very end of Phase 10, after the last push.
 
 ## Corrections
@@ -91,9 +91,35 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
 Recorded as they happen, in the shape: what was wrong, what was checked, what is true.
 
 - vendor-patch start built its work copy inside the repo, where `git apply` resolves paths against the repo root
-  and skips unmatched files with exit 0. The taste skill`s second patch was recorded against a base without the first
+  and skips unmatched files with exit 0. The taste skill's second patch was recorded against a base without the first
   and deleted the manual-only line. buildItem now always patches outside any repo and fails unless every file
   in a patch reports "Applied". Patch 002 regenerated; every item verified.
 - The guard as planned (v6) blocked creating a new `.env` file, which `tv-new-project` and fixture F6
   need. Writing a file that does not exist cannot expose a secret, so `Write` to a missing path is
   now allowed. 56 cases pass.
+- Phase 6 rules review: TV 01 anatomy, TV 02 suffix/casing/handler/hook/API_ naming, TV 05 contexts and
+  TV 06 API layer sat in react.md (tsx, jsx) but govern .ts files, so they never loaded for a .ts-only
+  change. Checked: the packs had not been hand-edited since generation. Now: the migration was re-run
+  from 28113e9 with a corrected map (01, 05, 06 and the naming sections to typescript; the casing table
+  and the tells table to core; "No path aliases" to node-tooling; more tooling config paths), stale
+  paths into the old repo relabelled, the contract states that only reading a file loads its pack and
+  that no pack overrides TV 00, and docs/rules.md is generated. Verbatim check: every source line of a
+  kept section is present; the 50 absent lines are dropped sections, relabels or the two drift fixes.
+
+## Phase 6 notes
+
+- Pass 1 reviewers: rules split, TV conformance, hooks and scripts, installer and plugin route, vendoring,
+  security. Fixes landed in four commits (rules, installer, hooks, vendoring).
+- Installer: sha256 per file in the manifest; edited or taken-over files are backed up; uninstall removes
+  the kit hooks and status line from settings.json and prunes empty folders; one spelling per config dir;
+  hooks replaced one by one inside groups; --route=plugin; preflight (Node 20, git); temp builds cleaned;
+  scripts chmod 755 by shebang. plugin.json has no version, so each commit is a new plugin version.
+- personal.snippet.json moved to personal/ (author only); pnpm run/test and NotebookEdit left its allow list.
+- The guard is an accident guard, not an adversary guard (stated in its header). The Stop gate runs only a
+  repo's own `node scripts/<file>` std:check, with node directly: no shell, no pnpm, no pre-scripts.
+- Vendoring: verifyItem refuses unreviewed items and any upstream whose sha256 differs from the reviewed
+  copy; line endings verbatim; executables recorded; notices generated and checked by std-check; the
+  impeccable engine is pinned per platform in the launcher (patch 002). A binary bump needs 002 regenerated.
+- Accepted and documented rather than fixed: upstreamSha256 does not cover patches or licences (a git diff
+  shows those); an engine reached through IMPECCABLE_BIN or PATH runs unhashed (upstream's model);
+  `cat .*` is not denied; a commit nested inside `bash -c` is not checked.

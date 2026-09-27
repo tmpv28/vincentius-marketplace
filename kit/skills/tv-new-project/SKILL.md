@@ -23,7 +23,8 @@ evidence, or as blocked, with the reason.
    `src/resources/styles/variables/colors/_colorStatics.scss`.
 5. `git init -b main`. Seed the local environment with exactly `cp .env .env.local`, then tell me which names
    in `.env.local` need values. Never read or write the values yourself.
-6. `pnpm install`. The 7-day minimum release age applies; if an install is refused for age, say which package.
+6. `pnpm install --frozen-lockfile`, so the reviewed lockfile is what gets installed. The template sets the 7-day
+   minimum release age for any later `pnpm add`; if one is refused for age, say which package.
 7. `pnpm std:check` must pass on the untouched copy before anything else.
 8. Break something on purpose, try to commit, confirm the hook refuses it, then undo the break.
 9. The first commit is `chore: scaffold project` and contains only the scaffold. Make it only if I asked for
