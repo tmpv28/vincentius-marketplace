@@ -12,14 +12,16 @@ export const HOOK = (name) => join(REPO, "kit", "hooks", "tv", name);
 export const EM_DASH = String.fromCharCode(0x2014);
 export const BACKSLASH = String.fromCharCode(92);
 
-export const runHook = (name, input, env = {}) => {
-  const result = spawnSync(process.execPath, [HOOK(name)], {
+export const runKitScript = (scriptPath, input, env = {}) => {
+  const result = spawnSync(process.execPath, [scriptPath], {
     input: typeof input === "string" ? input : JSON.stringify(input),
     env: { ...process.env, ...env },
     encoding: "utf8"
   });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 };
+
+export const runHook = (name, input, env = {}) => runKitScript(HOOK(name), input, env);
 
 export const isDenied = (result) => result.stdout.includes('"deny"');
 
@@ -38,10 +40,16 @@ export const makeEnvRepo = (tracked) => {
   return dir;
 };
 
-export const makePackage = (name, stdCheckScript) => {
+// `files` maps a path inside the package to its content, for the script std:check runs (or a broken
+// package.json, which replaces the generated one).
+export const makePackage = (name, stdCheckScript, files = {}) => {
   const dir = makeTempDir(name);
   mkdirSync(dir, { recursive: true });
   if (stdCheckScript !== null)
     writeFileSync(join(dir, "package.json"), JSON.stringify({ name, scripts: { "std:check": stdCheckScript } }));
+  for (const [relativePath, content] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, relativePath)), { recursive: true });
+    writeFileSync(join(dir, relativePath), content);
+  }
   return dir;
 };
