@@ -299,7 +299,9 @@ const emDashHits = collectFiles("src")
   .flatMap((filePath) =>
     readFileSync(filePath, "utf-8")
       .split("\n")
-      .map((line, index) => (line.includes(EM_DASH) ? `${filePath.replace(/\\/g, "/")}:${index + 1}` : null))
+      .map((line, index) =>
+        line.includes(EM_DASH) ? `${filePath.replace(/\\/g, "/")}:${index + 1}` : null
+      )
       .filter(Boolean)
   );
 

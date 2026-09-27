@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "shell": "powershell", "async": true,
+          "command": "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('Claude Code needs your attention','Claude Code') | Out-Null" }]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Read", "Glob", "Grep", "WebSearch", "Skill", "Agent", "NotebookEdit",
+      "WebFetch(domain:github.com)", "WebFetch(domain:raw.githubusercontent.com)", "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:registry.npmjs.org)", "WebFetch(domain:www.npmjs.com)", "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:docs.anthropic.com)", "WebFetch(domain:platform.claude.com)", "WebFetch(domain:pnpm.io)",
+      "Bash(pnpm run *)", "Bash(pnpm test *)", "Bash(pnpm exec tsc *)", "Bash(pnpm exec eslint *)", "Bash(pnpm exec prettier *)",
+      "Bash(pnpm list *)", "Bash(pnpm outdated *)", "Bash(pnpm audit *)", "Bash(pnpm view *)",
+      "Bash(git status *)", "Bash(git diff *)", "Bash(git log *)", "Bash(git fetch *)", "Bash(gh pr view *)", "Bash(gh pr list *)",
+      "Bash(node */vincentius-marketplace/scripts/vendor-check.mjs*)"
+    ],
+    "ask": [
+      "Bash(git push *)", "PowerShell(git push *)", "PowerShell(Remove-Item *)",
+      "Bash(pnpm add *)", "Bash(pnpm install *)", "Bash(pnpm update *)", "Bash(pnpm dlx *)", "Bash(npm *)", "Bash(npx *)"
+    ],
+    "deny": [
+      "Bash(git push --force)", "Bash(git push --force *)", "Bash(git push -f *)", "Bash(git reset --hard*)",
+      "Bash(git clean -fd*)", "Bash(git clean -fx*)", "Bash(git checkout -- .)", "Bash(git restore .)", "Bash(git branch -D *)",
+      "Bash(shutdown *)", "Bash(reboot *)", "Bash(killall *)", "Bash(mkfs *)", "Bash(dd *)",
+      "Read(~/.ssh/**)", "Read(~/.aws/**)", "Read(~/.claude/.credentials.json)", "Read(~/.npmrc)",
+      "Bash(npm publish*)", "Bash(pnpm publish*)", "PowerShell(iex *)", "PowerShell(Invoke-Expression *)", "PowerShell(git push --force *)"
+    ]
+  },
+  "env": { "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "2" },
+  "enableAllProjectMcpServers": false,
+  "autoUpdatesChannel": "stable",
+  "skillListingBudgetFraction": 0.02,
+  "effortLevel": "medium"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "vincentius-marketplace",
+  "owner": { "name": "Vincentius" },
+  "metadata": {
+    "description": "TV-STANDARD as Claude Code rules, skills, agents and hooks, plus vendored skills with tracked upstreams."
+  },
+  "plugins": [
+    {
+      "name": "vincentius",
+      "source": "./",
+      "description": "Bootstrap: one setup skill that runs the kit's installer (rules cannot ship inside a plugin)."
+    }
+  ]
+}

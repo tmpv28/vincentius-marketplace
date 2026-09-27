@@ -17,7 +17,7 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
 | 2 | Create the repo | done | see git log, tag hold/phase-2 | TV history under standard/ (10 commits); hooks + 85 unit tests moved in |
 | 3 | Split the standard | done | tag hold/phase-3 | core 12.9k tok; typescript 5.4k; react 13.1k; accessibility 0.6k; styles 1.4k; scss 1.4k; testing 1.8k; node-tooling 2.8k (chars/4). 175 sections, 2440 lines verified verbatim |
 | 4 | Vendor everything | done | tag hold/phase-4 | 9 skills vendored at confirmed pins, 9 patches, engine verified; vendor-check live |
-| 5 | Build the tooling | pending | | |
+| 5 | Build the tooling | done | tag hold/phase-5 | install.mjs, plugin bootstrap, 11 tv skills, 2 agents, 5 hooks, vendor-check, listing budget; 109 unit + install tests |
 | 6 | Review until clean | pending | | |
 | 7 | Test everything | pending | | |
 | 8 | Write the documentation | pending | | |
@@ -78,10 +78,22 @@ Plan of record: https://claude.ai/artifact/HMPidXfpRgeXUyL4h91G63 (v6.2).
   live-browser.js and has not been read. First item for the monthly check.
 - vendor-check fixed twice while writing: same-day commits compared by timestamp; releases and advisories by version.
 
+## Phase 5 notes
+
+- Template: unused `lodash`, `@types/lodash` and `@testing-library/react` removed (TV 03, TV 09); template std:check passes.
+- Listing today (this machine, 2% budget): 80 invocable skills, ~7k tokens; the kit adds 13 skills, ~1k tokens.
+- `claude plugin validate .` passes for the marketplace manifest.
+- The final ask rules (git push, pnpm add/install/update/dlx, npm, npx) live in `kit/settings/personal.snippet.json`;
+  they are applied at the very end of Phase 10, after the last push.
+
 ## Corrections
 
 Recorded as they happen, in the shape: what was wrong, what was checked, what is true.
 
+- vendor-patch start built its work copy inside the repo, where `git apply` resolves paths against the repo root
+  and skips unmatched files with exit 0. The taste skill`s second patch was recorded against a base without the first
+  and deleted the manual-only line. buildItem now always patches outside any repo and fails unless every file
+  in a patch reports "Applied". Patch 002 regenerated; every item verified.
 - The guard as planned (v6) blocked creating a new `.env` file, which `tv-new-project` and fixture F6
   need. Writing a file that does not exist cannot expose a secret, so `Write` to a missing path is
   now allowed. 56 cases pass.
