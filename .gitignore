@@ -1,0 +1,11 @@
+node_modules/
+coverage/
+tests/.tmp/
+*.log
+.env.local
+.env.*.local
+.claude/settings.local.json
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
