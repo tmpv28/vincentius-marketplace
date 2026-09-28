@@ -320,7 +320,11 @@ const install = () => {
 
   // The manifest goes first: if settings.json cannot be merged, the files written are still on record.
   if (!IS_DRY_RUN) writeManifest(manifest);
-  if (flag("apply-settings")) applySettings(manifest);
+  // A hook script left alone as a conflict is someone else's file: settings.json must not start running it.
+  const hookConflicts = conflicts.filter((rel) => rel.startsWith("hooks/tv/"));
+  if (flag("apply-settings") && hookConflicts.length)
+    log("✖", `settings.json not merged: ${hookConflicts.join(", ")} is not the kit's (--force takes it over, after a backup)`);
+  else if (flag("apply-settings")) applySettings(manifest);
   else {
     log("·", "settings.json untouched; hooks are off until --apply-settings merges them (backup and diff first)");
     if (stale.some((rel) => rel.startsWith("hooks/tv/")))

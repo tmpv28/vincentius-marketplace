@@ -32,7 +32,8 @@ const GENERAL = [
   ["Bash", { command: "cat .env.example" }, "allow"],
   ["Read", { file_path: `C:${B}proj${B}.env` }, "deny"],
   ["PowerShell", { command: `Remove-Item C:${B} -Recurse` }, "deny"],
-  ["Bash", { command: "ls ~/.ssh/" }, "deny"],
+  ["Bash", { command: "ls ~/.ssh/" }, "allow"],
+  ["Bash", { command: "cat ~/.ssh/config" }, "deny"],
   ["Bash", { command: "pnpm test" }, "allow"],
   ["Bash", { command: "rm -r -f /" }, "deny"],
   ["Bash", { command: "rm -fr ~" }, "deny"],
@@ -51,7 +52,8 @@ const GENERAL = [
   ["Grep", { pattern: "KEY", path: `C:${B}proj${B}.env` }, "deny"],
   ["Bash", { command: 'git commit -m "fix .env loading"' }, "allow"],
   ["Bash", { command: "grep -r x src/.env" }, "deny"],
-  ["Read", { file_path: `C:${B}Users${B}vince${B}.ssh${B}id_ed25519.pub` }, "deny"],
+  ["Read", { file_path: `C:${B}Users${B}vince${B}.ssh${B}id_ed25519.pub` }, "allow"],
+  ["Read", { file_path: `C:${B}Users${B}vince${B}.ssh${B}id_ed25519` }, "deny"],
   ["Bash", { command: "rm -rf *" }, "deny"],
   ["Bash", { command: 'rm -rf "$HOME"' }, "deny"],
   ["Bash", { command: "rm -rf /c/Users/vince/proj/build" }, "allow"],
@@ -328,6 +330,15 @@ describe("guard.js", () => {
     const result = runHook("guard.js", "not json");
     assert.equal(result.status, 0);
     assert.equal(result.stdout, "");
+  });
+
+  it("fails open at once on a command over 64 KB, rather than running into the hook timeout", () => {
+    const command = `cat .env.local # ${"x".repeat(70 * 1024)}`;
+    const started = Date.now();
+    const result = runHook("guard.js", { cwd: plainDir, tool_name: "Bash", tool_input: { command } });
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, "");
+    assert.ok(Date.now() - started < 5000);
   });
 
   it("fails open on JSON that is not an object", () => {

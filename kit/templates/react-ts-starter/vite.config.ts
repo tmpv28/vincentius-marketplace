@@ -1,13 +1,11 @@
 /// <reference types="vitest" />
 
-// eslint-disable-next-line import/no-unresolved
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { ViteDevServer } from "vite";
 import svgr from "vite-plugin-svgr";
 import { printAppLogo } from "./scripts/branding.js";
 
-// --- Custom Plugin Definition ---
 function customServerMessagePlugin() {
   return {
     name: "custom-server-message",
@@ -52,8 +50,7 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        // eslint-disable-next-line quotes
-        additionalData: `@use "/src/resources/styles/callers/toolingCaller.scss" as *;`
+        additionalData: "@use '/src/resources/styles/callers/toolingCaller.scss' as *;"
       }
     }
   }

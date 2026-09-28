@@ -143,3 +143,11 @@ Recorded as they happen, in the shape: what was wrong, what was checked, what is
   the local env file from any schema copy allowed. tests/unit/everyday-commands.test.mjs pins every
   reviewer example so fixes cannot regress silently. Rules: inline styles and action-state classes reach
   tsx; skills no longer point at a lazy-fetch controller the template lacks; template vite.config fixed.
+- Pass 5: installer and scripts clean for the second pass running (done). Hooks: six realistic misses,
+  now all in the corpus (variable-held paths, `&` call, piped listings, --include globs, seeding in
+  compound commands, strings piped into Add-Content); public keys and `ls ~/.ssh` allowed; over 64 KB
+  fails open at once. Rules and template: endpoint-hook naming, DataViewer generic and error state,
+  svgr types, an unread isFetchEnabled removed, eslint quotes/semi/comma-dangle actually enforced.
+  Installer: --apply-settings refuses while a kit hook script is someone else's file.
+- From pass 6 on, the hooks bar is realistic everyday use by Claude; contrived evasions are optional,
+  consistent with the accident-guard threat model.

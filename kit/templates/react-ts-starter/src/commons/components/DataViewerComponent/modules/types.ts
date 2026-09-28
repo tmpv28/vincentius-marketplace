@@ -1,22 +1,23 @@
 import React, { ReactNode } from "react";
 
-export interface DataViewerColumnDefinitionType<TRowDataType> {
+export interface DataViewerColumnDefinitionType<T> {
   id: string;
   label: string;
-  renderCell: (rowData: TRowDataType) => ReactNode;
+  renderCell: (rowData: T) => ReactNode;
 }
 
-export interface DataViewerComponentType<TRowDataType> {
-  rowsData?: TRowDataType[];
-  columnsDefinition?: DataViewerColumnDefinitionType<TRowDataType>[];
-  getRowId: (rowData: TRowDataType) => string;
+export interface DataViewerComponentType<T> {
+  rowsData?: T[];
+  columnsDefinition?: DataViewerColumnDefinitionType<T>[];
+  getRowId: (rowData: T) => string;
 
   isLoading?: boolean;
+  errorMsg?: string;
   noRowsReturnMsg?: string;
   hideNoRowsReturnMsg?: boolean;
 
   // Rendered in a trailing cell on every row. Takes a named bag, never positional arguments.
-  rowActionsHandler?: (attrbs: { rowData: TRowDataType }) => ReactNode;
+  rowActionsHandler?: (attrbs: { rowData: T }) => ReactNode;
 
   // Grid track sizes for one row, so the owning feature decides its own column widths.
   gridTemplateColumns?: string;

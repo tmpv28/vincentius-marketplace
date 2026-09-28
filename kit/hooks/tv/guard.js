@@ -18,16 +18,18 @@ const { readInput, cwdOf } = require("./hook-input.js");
 // ─── Secret files ───────────────────────────────────────────
 
 const SECRET_PATH = /(^|\/)\.ssh(\/|$)|\.credentials\.json|(^|\/)id_(rsa|ed25519|ecdsa)\b|\.aws\/credentials|(^|\/)\.(npmrc|git-credentials|netrc|pypirc)$/;
+// A public key is meant to be shared: cat ~/.ssh/id_ed25519.pub is how it gets pasted somewhere.
+const PUBLIC_KEY = /\.pub$/;
 const ENV_FILE = /^\.env(?:\.([^.]+)(?:\..*)?)?$/;
 const SCHEMA_SUFFIXES = new Set(["example", "sample", "template", "dist", "defaults"]);
 const GLOB = /[*?[{]/;
 
 // Seeding .env.local from the schema (.env, or .env.example and its kin) copies bytes without reading
-// them into context. Anchored, so it cannot be chained with anything that does read.
-const SEED = new RegExp(
-  `^\\s*(cp|copy|copy-item)(\\s+-\\w+)*\\s+["']?(\\./)?\\.env(\\.(${[...SCHEMA_SUFFIXES].join("|")}))?["']?\\s+["']?(\\./)?\\.env\\.local["']?\\s*$`,
-  "i"
-);
+// them into context. Matched per simple command, so [ -f .env.local ] || cp ... is a seed, and a read
+// chained after it (&& cat .env.local) is still checked on its own.
+const SEED_COMMANDS = new Set(["cp", "copy", "copy-item", "cpi"]);
+const SEED_SOURCE = new RegExp(`^(\\./)?\\.env(\\.(${[...SCHEMA_SUFFIXES].join("|")}))?$`, "i");
+const SEED_TARGET = /^(\.\/)?\.env\.local$/i;
 
 const isEnvTracked = (dir) =>
   spawnSync("git", ["-C", dir, "ls-files", "--error-unmatch", "--", ".env"], { encoding: "utf8", timeout: 5000 }).status === 0;
@@ -46,8 +48,9 @@ const pathFragments = (value, isWhitespaceSplit) =>
     .map((part) => part.replace(/["']/g, "").replace(/[.\s]+$/, ""))
     .filter((part) => part !== "");
 
+// Split on = : , too, so --include=.env* and -Filter:.env* are seen as the glob they carry.
 const hasEnvGlob = (value) =>
-  value.replace(/\\/g, "/").toLowerCase().split("/").some((part) => part.startsWith(".en") && GLOB.test(part));
+  value.replace(/\\/g, "/").toLowerCase().split(/[/=:,]/).some((part) => part.startsWith(".en") && GLOB.test(part));
 
 // What makes `value` a secret reference, or null. isEnvRuleSkipped is for commands that never read
 // content (echo, ls, git add): they may name a .env, but the other secrets stay off limits.
@@ -55,7 +58,7 @@ const findSecretIn = (value, baseDir, isEnvRuleSkipped = false, isWhitespaceSpli
   if (!isEnvRuleSkipped && hasEnvGlob(value)) return `${value} (a glob that can match .env files)`;
   for (const fragment of pathFragments(value, isWhitespaceSplit)) {
     const lowerFragment = fragment.toLowerCase();
-    if (SECRET_PATH.test(lowerFragment)) return fragment;
+    if (SECRET_PATH.test(lowerFragment) && !PUBLIC_KEY.test(lowerFragment)) return fragment;
     if (isEnvRuleSkipped) continue;
     const baseName = lowerFragment.slice(lowerFragment.lastIndexOf("/") + 1);
     const envMatch = ENV_FILE.exec(baseName);
@@ -108,12 +111,17 @@ const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
 // A heredoc fed to a shell runs as commands; one fed to node or python runs as code, where only a
 // string literal can name a file (a comment about .env.local reads nothing).
 const HEREDOC_SHELLS = new Map([...[...SHELLS].map((shell) => [shell, "posix"]), ["pwsh", "windows"], ["powershell", "windows"]]);
-const HEREDOC_CODE_INTERPRETERS = new Set(["python", "python3", "node"]);
+const HEREDOC_CODE_INTERPRETERS = new Set(["python", "python3", "py", "node"]);
 const CODE_COMMENT_LINE = /^[ \t]*(\/\/|#).*$/gm;
 const STRING_LITERAL = /(["'`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
 const XARGS_OPTIONS_WITH_VALUE = new Set(["-n", "-L", "-P", "-I", "-d", "-E", "-s", "-a"]);
 
-const NON_READING_COMMANDS = new Set(["echo", "printf", "test", "[", "[[", "ls", "test-path", "write-host", "write-output", "dir", "get-childitem", "gci"]);
+const NON_READING_COMMANDS = new Set(["echo", "printf", "test", "[", "[[", "test-path", "write-host", "write-output", "where-object"]);
+// Listing names reads no content, so even ~/.ssh may be listed; but a listing piped onward or wrapped
+// in ( ) hands those files to something that may read them (gci .env* | Get-Content).
+const LISTING_COMMANDS = new Set(["get-childitem", "gci", "ls", "dir", "get-item", "gi"]);
+// A literal string piped into one of these is written to a file, not read from one.
+const PIPE_WRITERS = new Set(["set-content", "add-content", "sc", "ac", "out-file"]);
 const NON_READING_GIT = new Set(["rm", "add", "check-ignore", "ls-files", "status", "clean"]);
 const CONTENT_WRITERS = new Set(["set-content", "add-content", "sc", "ac"]);
 const CONTENT_OPTIONS_WITH_VALUE = /^-(encoding|stream|filter|include|exclude|credential|delimiter)$/i;
@@ -138,6 +146,7 @@ const PIPE_TO_SHELL = [
   new RegExp(`\\b(${SHELL_NAME}|eval|source)\\b[^;\\n|]*?(\\$\\(|\`)\\s*${FETCH}\\b`, "i")
 ];
 const MAX_NESTING = 4;
+const MAX_COMMAND_BYTES = 64 * 1024;
 
 const isRecursiveFlag = (word) =>
   /^--recursive$|^-rec|^\/s$/i.test(word) || (/^-[a-z]{1,4}$/i.test(word) && /r/i.test(word));
@@ -173,7 +182,6 @@ const isCatastrophicXargs = (name, args, pipedFrom) => {
 };
 
 // Get-ChildItem C:\ | Remove-Item -Recurse: PowerShell's xargs, where the targets arrive through the pipe.
-const LISTING_COMMANDS = new Set(["get-childitem", "gci", "ls", "dir", "get-item", "gi"]);
 const isCatastrophicPipedRemove = (name, args, pipedFrom) => {
   if (!DELETE_COMMANDS.has(name) || !pipedFrom) return false;
   const source = stripCommandPrefix(pipedFrom.words.map((word) => word.value));
@@ -181,7 +189,9 @@ const isCatastrophicPipedRemove = (name, args, pipedFrom) => {
   const isRecursive = args.some(isRecursiveFlag) || source.args.some(isRecursiveFlag);
   // A filtered listing (-Filter *.log, -Include bin,obj) removes matches, not the folder, so "." is safe.
   const isFiltered = source.args.some((word) => /^-(filter|include|exclude)(:|$)/i.test(word));
-  return isRecursive && deleteTargets(source.name, source.args).some((target) => isCatastrophicTarget(target, !isFiltered));
+  // No path lists the current folder: Get-ChildItem | Remove-Item -Recurse is rm -rf *.
+  const listedPaths = deleteTargets(source.name, source.args);
+  return isRecursive && (listedPaths.length > 0 ? listedPaths : ["."]).some((target) => isCatastrophicTarget(target, !isFiltered));
 };
 
 const isForcePush = (words) => {
@@ -280,36 +290,63 @@ const contentValueIndexes = (args) => {
   return [...valueIndexes, ...positionalIndexes.slice(hasNamedPath ? 0 : 1)];
 };
 
-// Words that are search patterns or exclusions, never paths: grep's pattern and --exclude, the
-// pattern of git grep and Select-String, and git log --grep. Indexes are into the command's words.
-const patternWordIndexes = (values, name, args, commandIndex, git) => {
+// Words that name no file read into context: grep's pattern and --exclude, the pattern of git grep and
+// Select-String, git log --grep, and node --env-file, which loads the file into the process, not into
+// context. Indexes are into the command's words.
+const unreadWordIndexes = (values, name, args, commandIndex, git) => {
   const fromArgs = (indexes, offset) => indexes.map((index) => offset + index);
   if (GREP_COMMANDS.has(name)) return fromArgs([...grepPatternIndexes(args), ...grepExcludeIndexes(args)], commandIndex + 1);
   if (name === "select-string" || name === "sls") return fromArgs(selectStringPatternIndexes(args), commandIndex + 1);
+  if (name === "node")
+    return fromArgs(args.flatMap((word, index) => (/^--env-file(-if-exists)?=/.test(word) ? [index] : /^--env-file(-if-exists)?$/.test(word) ? [index + 1] : [])), commandIndex + 1);
   if (git?.subcommand === "grep") return fromArgs(grepPatternIndexes(values.slice(git.subcommandIndex + 1)), git.subcommandIndex + 1);
   if (git) return values.flatMap((value, index) => (/^--grep=/.test(value) || values[index - 1] === "--grep" ? [index] : []));
   return [];
 };
 
-const findSecretInCommand = (command, masked, cwd, dialect, isPipedOut) => {
+// cp .env.example .env.local, Copy-Item -Path .env.example -Destination .env.local: a schema source
+// and exactly .env.local as the destination, whatever the option order.
+const isSeedCopy = (name, args) => {
+  if (!SEED_COMMANDS.has(name)) return false;
+  const named = {};
+  const positional = [];
+  for (let index = 0; index < args.length; index++) {
+    const word = args[index].replace(/\\/g, "/");
+    const option = /^-(path|literalpath|destination)(?::(.*))?$/i.exec(word);
+    if (option) named[option[1].toLowerCase() === "destination" ? "destination" : "source"] = option[2] ?? args[++index]?.replace(/\\/g, "/");
+    else if (!word.startsWith("-")) positional.push(word);
+  }
+  const source = named.source ?? positional.shift();
+  const destination = named.destination ?? positional.shift();
+  return positional.length === 0 && SEED_SOURCE.test(source ?? "") && SEED_TARGET.test(destination ?? "");
+};
+
+// pipeConsumer is the command this one pipes into, or null.
+const findSecretInCommand = (command, masked, cwd, dialect, pipeConsumer) => {
   const values = command.words.map((word) => word.value);
-  // $msg = @'...'@ in PowerShell stores text; the command that later uses $msg is checked on its own.
-  const isStringAssignment =
+  // $msg = @'...'@ in PowerShell stores prose; the command that later uses $msg is checked on its own.
+  // A bare name ($f = '.env.local') is still checked, because it is about to be used as a path.
+  const isProseAssignment =
     dialect === "windows" && /^\$[\w:]+$/.test(values[0] ?? "") && values[1] === "=" && command.words.length === 3 &&
-    command.words[2].isQuoted && command.words[2].substitutions.length === 0;
-  if (isStringAssignment) return null;
+    command.words[2].isQuoted && command.words[2].substitutions.length === 0 && /\s/.test(values[2]);
+  if (isProseAssignment) return null;
 
   const { name, args, commandIndex } = stripCommandPrefix(values);
   const git = parseGitInvocation(values);
+  const consumerName = pipeConsumer ? stripCommandPrefix(pipeConsumer.words.map((word) => word.value)).name : null;
+  const isWrapped = command.openedBy === "(";
   // A PowerShell statement that is only a string ('.env.local' >> .gitignore) writes that text, like
-  // echo. Not inside ( ), where it is an argument (Get-Content ('.env.local')), nor when piped onward.
+  // echo. Not as an argument (Get-Content ('.env.local')), not after the call operator (& 'cat.exe'
+  // .env.local), and not piped onward, unless what it pipes into only writes it to a file.
   const isLiteralOutput =
-    dialect === "windows" && command.words[commandIndex]?.isQuoted === true && command.openedBy !== "(" && !isPipedOut;
+    dialect === "windows" && command.words[commandIndex]?.isQuoted === true && !isWrapped && command.openedBy !== "&" &&
+    (consumerName === null || PIPE_WRITERS.has(consumerName));
+  const isListingOnly = LISTING_COMMANDS.has(name) && !isWrapped && pipeConsumer === null;
   const isNonReading = NON_READING_COMMANDS.has(name) || isLiteralOutput || (git !== null && NON_READING_GIT.has(git.subcommand));
-  const patternIndexes = patternWordIndexes(values, name, args, commandIndex, git);
+  const unreadIndexes = unreadWordIndexes(values, name, args, commandIndex, git);
   const contentIndexes = CONTENT_WRITERS.has(name) ? contentValueIndexes(args).map((index) => commandIndex + 1 + index) : [];
   for (const [index, word] of command.words.entries()) {
-    if (masked.has(word) || patternIndexes.includes(index)) continue;
+    if (isListingOnly || masked.has(word) || unreadIndexes.includes(index)) continue;
     const secret = findSecretIn(word.value, cwd, isNonReading || contentIndexes.includes(index), !word.isQuoted);
     if (secret) return secret;
   }
@@ -347,8 +384,7 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
   // bash -c '...', is still scanned: the loop below recurses into it.
   const quotedData = commands.flatMap((command) => command.words.filter((word) => word.isQuoted && word.substitutions.length === 0));
   if (PIPE_TO_SHELL.some((pattern) => pattern.test(maskWords(text, new Set([...masked, ...quotedData]))))) return "pipe-to-shell";
-  const isSeed = SEED.test(commandText.replace(/\\/g, "/"));
-  const pipedOut = new Set(commands.map((command) => command.pipedFrom).filter(Boolean));
+  const pipeConsumers = new Map(commands.filter((command) => command.pipedFrom).map((command) => [command.pipedFrom, command]));
 
   for (const command of commands) {
     const values = command.words.map((word) => word.value);
@@ -365,15 +401,24 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
     if (isCatastrophicDelete(name, args) || isCatastrophicFind(name, args) || isCatastrophicXargs(name, args, command.pipedFrom) || isPipedRemove)
       return "recursive delete on root/home";
     if (isForcePush(values)) return "force push";
-    const secret = isSeed ? null : findSecretInCommand(command, masked, cwd, dialect, pipedOut.has(command));
+    const isSeed = isSeedCopy(name, args);
+    const secret = isSeed ? null : findSecretInCommand(command, masked, cwd, dialect, pipeConsumers.get(command) ?? null);
     if (secret) return `secret file ${secret}`;
   }
 
-  for (const heredoc of heredocs) {
-    const shellDialect = HEREDOC_SHELLS.get(heredoc.receiver);
+  // cat <<'EOF' | python3 runs the body in python3, so the body is judged by what finally reads it.
+  const readerOf = (heredocIndex) => {
+    const owner = commands.find((command) => command.redirects.some((redirect) => redirect.target.value === `__HEREDOC_${heredocIndex}__`));
+    const consumer = owner ? pipeConsumers.get(owner) : null;
+    const isCatIntoPipe = owner && consumer && stripCommandPrefix(owner.words.map((word) => word.value)).name === "cat";
+    return isCatIntoPipe ? stripCommandPrefix(consumer.words.map((word) => word.value)).name : heredocs[heredocIndex].receiver;
+  };
+  for (const [heredocIndex, heredoc] of heredocs.entries()) {
+    const reader = readerOf(heredocIndex);
+    const shellDialect = HEREDOC_SHELLS.get(reader);
     const violation = shellDialect ? findViolation(heredoc.body, shellDialect, cwd, depth + 1) : null;
     if (violation) return violation;
-    const secret = HEREDOC_CODE_INTERPRETERS.has(heredoc.receiver) ? findSecretInCode(heredoc.body, cwd) : null;
+    const secret = HEREDOC_CODE_INTERPRETERS.has(reader) ? findSecretInCode(heredoc.body, cwd) : null;
     if (secret) return `secret file ${secret}`;
   }
   return null;
@@ -387,6 +432,10 @@ readInput().then((input) => {
   const cwd = cwdOf(input);
   const deny = (reason) => process.stdout.write(JSON.stringify({ hookSpecificOutput: {
     hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: `guard: ${reason}` } }));
+
+  // Past 64 KB a command is generated data, not something typed; scanning it could run into the hook
+  // timeout, which Claude Code also treats as "allow", so fail open at once rather than slowly.
+  if (typeof toolInput.command === "string" && Buffer.byteLength(toolInput.command) > MAX_COMMAND_BYTES) process.exit(0);
 
   if (typeof toolInput.command === "string") {
     const violation = findViolation(toolInput.command, input.tool_name === "PowerShell" ? "windows" : "posix", cwd);

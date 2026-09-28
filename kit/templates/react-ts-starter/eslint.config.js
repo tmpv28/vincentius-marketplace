@@ -78,12 +78,6 @@ export default typescriptEslint.config(
         }
       ],
 
-      // Restated after eslint-config-prettier turns them off, so a file that somehow bypassed
-      // Prettier still fails the lint step. They catch nothing Prettier would have left.
-      semi: ["error", "always"],
-      quotes: ["error", "double"],
-      "comma-dangle": ["error", "never"],
-
       // The unused-imports plugin owns this, so the two base rules stand down for it.
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": "off",
@@ -174,5 +168,18 @@ export default typescriptEslint.config(
     }
   },
 
-  prettierRecommended
+  prettierRecommended,
+
+  // Restated after eslint-config-prettier turns them off, so a file that somehow bypassed
+  // Prettier still fails the lint step. They catch nothing Prettier would have left.
+  // This block must stay after prettierRecommended, or its eslint-config-prettier layer switches
+  // them back off. avoidEscape mirrors Prettier, which picks single quotes to save an escape.
+  {
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    rules: {
+      semi: ["error", "always"],
+      quotes: ["error", "double", { avoidEscape: true }],
+      "comma-dangle": ["error", "never"]
+    }
+  }
 );

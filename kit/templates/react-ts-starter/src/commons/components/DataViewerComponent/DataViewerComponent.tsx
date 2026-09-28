@@ -9,21 +9,23 @@ import { EMPTY_ARRAY, EMPTY_OBJ } from "../../constants/shared";
 import { DataViewerComponentType } from "./modules/types";
 import "./DataViewerComponent.scss";
 
-// Owns the whole tri-state. A feature hands it rows and columns and never branches on loading or
-// emptiness itself, which is what stops two lists in the same app growing two different spinners.
-const DataViewerComponent = <TRowDataType,>({
+// Owns the whole tri-state. A feature hands it rows and columns and never branches on loading, error
+// or emptiness itself, which is what stops two lists in the same app growing two different spinners.
+const DataViewerComponent = <T,>({
   rowsData = EMPTY_ARRAY,
   columnsDefinition = EMPTY_ARRAY,
   getRowId,
   isLoading = false,
+  errorMsg = "",
   noRowsReturnMsg = "Nothing to show yet.",
   hideNoRowsReturnMsg = false,
   rowActionsHandler,
   gridTemplateColumns = "",
   customClassNames = EMPTY_OBJ,
   styleConfigs = EMPTY_OBJ
-}: DataViewerComponentType<TRowDataType>) => {
+}: DataViewerComponentType<T>) => {
   const hasRowActions = rowActionsHandler !== undefined;
+  const hasError = !isNullOrEmpty(errorMsg);
 
   const classNames = {
     rootContainer: `DataViewerComponent ${customClassNames.rootContainer || ""}`,
@@ -40,6 +42,16 @@ const DataViewerComponent = <TRowDataType,>({
     return (
       <div className={classNames.rootContainer} style={styleConfigs}>
         <LoadingSkeletonComponent rowsCount={4} />
+      </div>
+    );
+
+  if (hasError)
+    return (
+      <div className={classNames.rootContainer} style={styleConfigs} role="alert">
+        <EmptyStateComponent
+          message={errorMsg}
+          customClassNames={{ rootContainer: "errorAction", message: "errorAction" }}
+        />
       </div>
     );
 

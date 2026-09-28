@@ -20,6 +20,7 @@ import "./ManageNotesFeature.scss";
 
 const ManageNotesFeature: React.FC<ManageNotesFeatureType> = ({
   isLoading = false,
+  errorMsg = "",
   noRowsReturnMsg = "No notes yet. Add the first one."
 }: ManageNotesFeatureType) => {
   // Demo state. The API layer under api/queries/notes is the scaffold to switch to once a
@@ -56,6 +57,7 @@ const ManageNotesFeature: React.FC<ManageNotesFeatureType> = ({
         columnsDefinition={notesColumns}
         getRowId={(noteInstance) => noteInstance.id}
         isLoading={isLoading}
+        errorMsg={errorMsg}
         noRowsReturnMsg={noRowsReturnMsg}
         gridTemplateColumns={notesGridColumns}
         rowActionsHandler={({ rowData }) => (

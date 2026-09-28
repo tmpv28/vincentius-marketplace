@@ -60,7 +60,21 @@ const ALLOWED = [
   ["PowerShell", "Get-ChildItem * -Include *.bak -Recurse | Remove-Item"],
   ["PowerShell", `Remove-Item -Recurse -Force .${B}dist *> $null`],
   ["PowerShell", "dir .env*"],
-  ["Bash", "git clean -fdx -e .env.local"]
+  ["Bash", "git clean -fdx -e .env.local"],
+  // Pass 5.
+  ["Bash", "[ -f .env.local ] || cp .env.example .env.local"],
+  ["PowerShell", "Copy-Item -Path .env.example -Destination .env.local"],
+  ["PowerShell", "'.env.local' | Add-Content .gitignore"],
+  ["PowerShell", "'.env.local' | Out-File -Append .gitignore"],
+  ["PowerShell", "$note = 'remember to copy .env.example first'"],
+  ["Bash", "grep -rn API_KEY --exclude=.env ."],
+  ["Bash", "node --env-file=.env.local scripts/seed.mjs"],
+  ["Bash", "cat ~/.ssh/*.pub"],
+  ["Bash", "cat ~/.ssh/id_ed25519.pub"],
+  ["Bash", "ls -la ~/.ssh"],
+  ["PowerShell", "gci -Force | Where-Object Name -like '.env*'"],
+  ["Bash", "cat <<'EOF' | python3\nprint('hello')\nEOF"],
+  ["Bash", "cat <<'EOF' | bash\necho hello\nEOF"]
 ];
 
 const DENIED = [
@@ -87,7 +101,20 @@ const DENIED = [
   ["PowerShell", "Get-Content ('.env.local')"],
   ["PowerShell", "'.env.local' | Get-Content"],
   ["PowerShell", "Set-Content README.md @'\nRun: cat <<EOF\nthen\n'@\nRemove-Item -Recurse -Force ~"],
-  ["PowerShell", `Get-ChildItem C:${B} | Remove-Item -Recurse`]
+  ["PowerShell", `Get-ChildItem C:${B} | Remove-Item -Recurse`],
+  // Pass 5.
+  ["PowerShell", "$f = '.env.local'; Get-Content $f"],
+  ["PowerShell", "& 'C:/Program Files/Git/usr/bin/cat.exe' .env.local"],
+  ["PowerShell", "Get-ChildItem .env* | Get-Content"],
+  ["PowerShell", "gci -Force -Filter .env* | Select-String API_KEY"],
+  ["PowerShell", "Get-Content (Get-ChildItem .env.local)"],
+  ["Bash", "ls .env* | xargs cat"],
+  ["Bash", "grep -rn API_KEY --include=.env* ."],
+  ["Bash", "rg API_KEY --glob=.env*"],
+  ["Bash", "cat ~/.ssh/id_ed25519"],
+  ["Bash", "cat <<'EOF' | python3\nprint(open('.env.local').read())\nEOF"],
+  ["Bash", "cat <<'EOF' | bash\ncat .env.local\nEOF"],
+  ["PowerShell", "Get-ChildItem | Remove-Item -Recurse"]
 ];
 
 describe("everyday commands through guard.js and commit-guard.js", () => {

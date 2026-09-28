@@ -358,7 +358,8 @@ Props that receive a handler are named `on<Event>`: `onClick`, `onClickAction`, 
 
 ## Hooks (TV 02)
 
-- `use<Entity><Operation>` for endpoint hooks: `useAddNote`, `useReadNote`, `useNotesLazyFetch`
+- `use<Operation><Entity>` for endpoint hooks: `useAddNote`, `useReadNote`; a list fetch is
+  `use<Entity>LazyFetch`: `useNotesLazyFetch`
 - `use<Thing>Controller` for the API controllers: `useCreateController`
 - `use<Thing>Validations` for validation hooks: `useAddNoteValidations`
 - `use<Thing>Context` for context accessors: `useToastActionsContext`
@@ -656,7 +657,7 @@ optional argument stops being a breaking change.
 
 - `const` arrow functions by default. `function` for three cases: overloaded functions,
   hoisting-dependent helpers, and **type predicates**, which read better as declarations and are
-  often referenced above their definition inside a `modules/` barrel of related checks.
+  often referenced above their definition inside a `modules/` file of related checks.
 - Named exports by default. Default export only for a component, feature, page, or a controller
   hook, where the file **is** the thing.
 - Destructure at the parameter, with defaults inline:

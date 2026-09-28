@@ -13,24 +13,20 @@ Object.defineProperty(window, "matchMedia", {
     matches: false,
     media: query,
     onchange: null,
-    addListener: vi.fn(), // deprecated
-    removeListener: vi.fn(), // deprecated
+    // The pre-2020 listener API, stubbed so a library that still falls back to it does not throw.
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn()
   }))
 });
 
+// jsdom has no layout engine, so nothing is ever resized; the methods only have to exist.
 globalThis.ResizeObserver = class ResizeObserver {
-  observe() {
-    // do nothing
-  }
+  observe() {}
 
-  unobserve() {
-    // do nothing
-  }
+  unobserve() {}
 
-  disconnect() {
-    // do nothing
-  }
+  disconnect() {}
 };

@@ -3,6 +3,7 @@ import { API_NoteType } from "../../../../api/queries/notes/entityTypes";
 
 export interface ManageNotesFeatureType {
   isLoading?: boolean;
+  errorMsg?: string;
   noRowsReturnMsg?: string;
 }
 

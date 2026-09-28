@@ -18,8 +18,13 @@ else from the template at `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/templates/react-t
 
 - `src/pages/<Name>Page.tsx`, flat, unless it has internals worth a folder; then `<Name>Page/` with `modules/`.
 - Composition and layout only. Any mutation belongs in a feature the page renders; run `tv-add-feature` for it.
-- A detail read lives here because the page is what the URL addressed; tri-state handled by the read
-  controller's `defaultSystemRender`.
+- A detail read lives here because the page is what the URL addressed. The page does not branch on
+  its tri-state: pass the read hook's `isLoading`, and the `msg` of the response object its `API_`
+  call rejects with, to the shared component that owns the surface, the way `ManageNotesFeature`
+  hands `isLoading` and `errorMsg` to `DataViewerComponent`. The read controller returns only
+  `{ readInstance, isLoading }`; if the page needs anything it lacks, stop and ask (TV 00 #10). A project
+  that has the page-level controller the react pack shows (`useReadPageController`, TV 04) uses its
+  `defaultSystemRender` instead; the template does not have one.
 - Register it with `tv-add-route`.
 
 ## 3. Finish

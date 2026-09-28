@@ -136,6 +136,16 @@ describe("install.mjs", () => {
     assert.equal(manifestOf(other).route, "plugin");
   });
 
+  it("does not merge settings while a kit hook script is someone else's file", () => {
+    const other = fresh();
+    mkdirSync(join(other, "hooks", "tv"), { recursive: true });
+    writeFileSync(join(other, "hooks", "tv", "guard.js"), "// mine");
+    const result = install(other, "--apply-settings");
+    assert.equal(result.status, 1);
+    assert.equal(existsSync(join(other, "settings.json")), false);
+    assert.match(result.stdout, /settings.json not merged/);
+  });
+
   it("never overwrites a file the kit does not own", () => {
     const other = fresh();
     mkdirSync(join(other, "skills", "grilling"), { recursive: true });

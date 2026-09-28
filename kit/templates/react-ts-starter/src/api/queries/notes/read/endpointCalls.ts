@@ -4,12 +4,12 @@ import { ResponseDataContaining } from "../../../../commons/systems/responseObje
 import { isArray } from "../../../../commons/utils/typeChecks/isSpecificType";
 
 import useReadController from "../../../configs/controllers/CRUD/useReadController";
+import { DefaultEndpointHandlingType } from "../../../configs/modules/sharedTypes";
 
-import { ReadNotesEndpointType } from "./endpointTypes";
 import { NOTES_API_URL } from "../endpointsDefinition";
 import { API_NoteType } from "../entityTypes";
 
-export const useReadNotes = ({ entityName = "notes" }: ReadNotesEndpointType = {}) => {
+export const useReadNotes = ({ entityName = "notes" }: DefaultEndpointHandlingType = {}) => {
   const { readInstance, isLoading } = useReadController();
 
   //-----------
