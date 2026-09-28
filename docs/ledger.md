@@ -163,3 +163,11 @@ Recorded as they happen, in the shape: what was wrong, what was checked, what is
   declarations; fixed with a compile test. Also: read guard checks every claimed field, toasts are buttons,
   the staged-snapshot hook fails loudly, and std:check now lints the template's scripts/. Rules:
   node-tooling loads for the gate scripts; tv-add-feature points Delete at DeleteNote.
+- Pass 8: hooks had no misses; false denies fixed (tracked project .npmrc, any commit scope without
+  spaces, git restore, vercel env pull, transform seeds, file listings) and a leading literal cd/pushd/
+  Set-Location now moves the tracked and seed checks. Corpus 1336 tests. Accepted, in guard.js's header:
+  `grep -rn KEY .` and `docker compose config`. Template: no-nested-ternary on, one tested note guard
+  shared by create and read, stylelint is gate step 4, five unused dev dependencies removed. Rules: the
+  nested-ternary example's directive sits directly above the expression.
+- Phase 7 item: pnpm warns of an unmet peer from eslint-plugin-unused-imports@4.4.1 (it pulls
+  @typescript-eslint/eslint-plugin@7, which wants ESLint 8); not caused by the removals.

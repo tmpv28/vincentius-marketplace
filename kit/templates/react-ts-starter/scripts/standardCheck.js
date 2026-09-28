@@ -229,6 +229,35 @@ function printConflictReport(conflicts) {
   });
 }
 
+// Stylelint's JSON report, re-emitted in ESLint's line shape so one counter and one colouriser
+// serve both linters. Returns null when the output is not a report at all, which means stylelint
+// itself failed to run, and the caller says so instead of reading it as a pass.
+function formatStylelintReport(output) {
+  const reportStart = output.indexOf("[");
+  if (reportStart === -1) return null;
+
+  let fileResults;
+  try {
+    fileResults = JSON.parse(output.slice(reportStart));
+  } catch (parseError) {
+    console.log(chalk.red(`  Stylelint output was not JSON: ${parseError.message}`));
+    return null;
+  }
+
+  return fileResults
+    .filter((fileResult) => fileResult.warnings.length > 0)
+    .map((fileResult) =>
+      [
+        fileResult.source,
+        ...fileResult.warnings.map(
+          ({ line, column, severity, text, rule }) =>
+            `  ${line}:${column}  ${severity}  ${text.replace(` (${rule})`, "")}  ${rule}`
+        )
+      ].join("\n")
+    )
+    .join("\n\n");
+}
+
 function printSummaryLine(errors, warnings) {
   const parts = [];
   if (errors > 0) parts.push(chalk.red.bold(`${errors} error${errors > 1 ? "s" : ""}`));
@@ -238,12 +267,12 @@ function printSummaryLine(errors, warnings) {
     const plainParts = [];
     if (errors > 0) plainParts.push(`${errors} error${errors > 1 ? "s" : ""}`);
     if (warnings > 0) plainParts.push(`${warnings} warning${warnings > 1 ? "s" : ""}`);
-    const boxW = `Total › ${plainParts.join(" · ")}`.length + 2;
-    const d = chalk.dim;
+    const boxWidth = `Total › ${plainParts.join(" · ")}`.length + 2;
+    const dim = chalk.dim;
     console.log("");
-    console.log(`  ${d(`┌${"─".repeat(boxW)}┐`)}`);
-    console.log(`  ${d("│")} ${content} ${d("│")}`);
-    console.log(`  ${d(`└${"─".repeat(boxW)}┘`)}`);
+    console.log(`  ${dim(`┌${"─".repeat(boxWidth)}┐`)}`);
+    console.log(`  ${dim("│")} ${content} ${dim("│")}`);
+    console.log(`  ${dim(`└${"─".repeat(boxWidth)}┘`)}`);
   }
 }
 
@@ -279,12 +308,12 @@ if (conflicts) {
     chalk.dim("    Resolve all merge conflicts first, then run the health check again.\n")
   );
 
-  const d = chalk.dim;
+  const dim = chalk.dim;
   const summary = `${conflictCount} conflict${conflictCount > 1 ? "s" : ""} in ${fileCount} file${fileCount > 1 ? "s" : ""}`;
-  const boxW = summary.length + 2;
-  console.log(`  ${d(`┌${"─".repeat(boxW)}┐`)}`);
-  console.log(`  ${d("│")} ${chalk.white.bold(summary)} ${d("│")}`);
-  console.log(`  ${d(`└${"─".repeat(boxW)}┘`)}`);
+  const boxWidth = summary.length + 2;
+  console.log(`  ${dim(`┌${"─".repeat(boxWidth)}┐`)}`);
+  console.log(`  ${dim("│")} ${chalk.white.bold(summary)} ${dim("│")}`);
+  console.log(`  ${dim(`└${"─".repeat(boxWidth)}┘`)}`);
   console.log("\n");
   process.exit(1);
 }
@@ -420,6 +449,33 @@ if (isLinterCrash(eslintResult)) {
   if (!eslintResult.success && newCounts.errors > 0) hasFatalFailure = true;
 } else {
   console.log(`${STEP_ICON_OK} ${chalk.green("All clear. Linter has nothing to complain about.")}`);
+}
+
+// ─── Step 4: Style linting (report only, no fix) ──────────
+
+console.log("\n");
+printStepHeader("Style check...");
+
+// Stylelint 16 writes its report to stderr, so it is folded into stdout to be read at all.
+const stylelintResult = runCommand('pnpm exec stylelint "src/**/*.scss" --formatter json 2>&1');
+const stylelintReport = formatStylelintReport(getFullOutput(stylelintResult));
+
+if (stylelintReport === null) {
+  console.log(chalk.red(getFullOutput(stylelintResult)));
+  console.log(
+    `\n\n${STEP_ICON_FAIL} ${chalk.red.bold("Stylelint failed to run. Fix the style linter setup before continuing.")}`
+  );
+  hasFatalFailure = true;
+} else if (hasActualIssues(stylelintReport)) {
+  const styleCounts = countIssues(stylelintReport);
+  console.log(colorizeOutput(stylelintReport));
+  totalErrors += styleCounts.errors;
+  totalWarnings += styleCounts.warnings;
+  const icon = styleCounts.errors > 0 ? STEP_ICON_FAIL : STEP_ICON_WARN;
+  console.log(`\n\n${icon} ${chalk.dim("Style linter found issues.")}`);
+  if (styleCounts.errors > 0) hasFatalFailure = true;
+} else {
+  console.log(`${STEP_ICON_OK} ${chalk.green("Styles hold. Stylelint has no notes.")}`);
 }
 
 // ─── Final Summary ─────────────────────────────────────────

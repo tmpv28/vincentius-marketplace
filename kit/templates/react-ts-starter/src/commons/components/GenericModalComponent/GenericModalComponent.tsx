@@ -47,7 +47,7 @@ const GenericModalComponent: React.FC<GenericModalComponentType> = ({
       onClose={onClose}
       centered
       withCloseButton={false}
-      aria-labelledby={titleId}
+      aria-labelledby={isNullOrEmpty(title) ? undefined : titleId}
       className={classNames.rootContainer}
     >
       <div className={classNames.content} style={styleConfigs}>

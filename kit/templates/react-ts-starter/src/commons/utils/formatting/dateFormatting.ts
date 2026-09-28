@@ -6,7 +6,7 @@ import { isNullOrEmpty } from "../typeChecks/isNullOrEmpty";
 export const formatDateForDisplay = (isoDate?: string): string => {
   if (isNullOrEmpty(isoDate)) return "";
 
-  const parsedDate = parseISO(isoDate as string);
+  const parsedDate = parseISO(isoDate);
   if (!isValid(parsedDate)) return "";
 
   return format(parsedDate, "dd MMM yyyy, HH:mm");

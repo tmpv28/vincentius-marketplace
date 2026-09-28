@@ -2,8 +2,6 @@ import { useCallback, useMemo } from "react";
 
 import { useToastActionsContext } from "../../../../commons/contexts/Toast/modules/ToastContext.context";
 import { createResponseObject } from "../../../../commons/systems/responseObjectSystem/utils";
-import { ResponseDataContaining } from "../../../../commons/systems/responseObjectSystem/types";
-import { isObject, isString } from "../../../../commons/utils/typeChecks/isSpecificType";
 
 import {
   getRequiredFieldUndefinedErrorMsg,
@@ -13,6 +11,7 @@ import { removeEmptyPayloadProperties } from "../../../configs/modules/handlers/
 import useCreateController from "../../../configs/controllers/CRUD/useCreateController";
 
 import { validateRequiredPayloadDataForAddNote } from "./validateRequiredPayloadData";
+import { isApiNoteType } from "../modules/notesGuards";
 import { NOTES_API_URL } from "../endpointsDefinition";
 import { API_NoteType } from "../entityTypes";
 import { API_AddNoteType } from "./endpointTypes";
@@ -35,12 +34,10 @@ export const useAddNote = () => {
       return createInstance<API_NoteType>({
         entityName,
         configs: { url: NOTES_API_URL.create, method: "POST", data: cleanedNoteDetails },
-        // Checks the two fields the caller actually reads back. A guard that only proves the
-        // server sent something would be claiming API_NoteType while verifying nothing.
-        responseDataTypeGuard: (
-          responseData
-        ): responseData is ResponseDataContaining<API_NoteType> =>
-          isObject(responseData) && isString(responseData.id) && isString(responseData.title),
+        // The server returns the created entity directly, so the shared entity guard applies at
+        // the top level. A guard that only proves the server sent something would be claiming
+        // API_NoteType while verifying nothing.
+        responseDataTypeGuard: isApiNoteType,
         onSuccessHandler: {
           action: () => createSuccessfulToast(`${entityName} added successfully.`)
         },

@@ -3,6 +3,8 @@
 // secret or running a catastrophic command; anyone set on evading it can, since no regex survives a
 // determined adversary. So it closes the cheap, plausible bypasses, keeps false positives down, and
 // stops short of being a shell parser. The permission rules stay the real boundary.
+// Accepted leaks, by decision: grep -rn KEY . (a recursive search that may pass through .env.local)
+// and docker compose config (which prints the environment it loaded); both are ordinary daily work.
 // .env rule follows TV 00 #7: a committed .env is a schema, so a git-tracked .env may be read;
 // every other .env* file is a secret, except the copy that seeds .env.local from the schema (.env,
 // .env.example, .env.sample, .env.template, .env.dist or .env.defaults).
@@ -18,7 +20,11 @@ const { CODE_ADJACENT_FILE } = require("./code-extensions.js");
 
 // ─── Secret files ───────────────────────────────────────────
 
-const SECRET_PATH = /(^|\/)\.ssh(\/|$)|\.credentials\.json|(^|\/)id_(rsa|ed25519|ecdsa)\b|\.aws\/credentials|(^|\/)\.(npmrc|git-credentials|netrc|pypirc)$/;
+const SECRET_PATH = /(^|\/)\.ssh(\/|$)|\.credentials\.json|(^|\/)id_(rsa|ed25519|ecdsa)\b|\.aws\/credentials|(^|\/)\.(git-credentials|netrc|pypirc)$/;
+// A project .npmrc is pnpm config and is usually committed, but it can carry an _authToken. So it
+// follows the bare .env's rule: tracked may be read, untracked may not, and ~/.npmrc never may.
+const NPMRC = ".npmrc";
+const UNTRACKED_NPMRC = ".npmrc (untracked)";
 // A public key is meant to be shared: cat ~/.ssh/id_ed25519.pub is how it gets pasted somewhere.
 const PUBLIC_KEY = /\.pub$/;
 const ENV_FILE = /^\.env(?:\.([^.]+)(?:\..*)?)?$/;
@@ -33,25 +39,27 @@ const GLOB = /[*?[{]/;
 // chained after it (&& cat .env.local) is still checked on its own. Source and destination must share
 // a folder (apps/api/.env.example to apps/api/.env.local), so a seed never lands in another project.
 const SEED_COMMANDS = new Set(["cp", "copy", "copy-item", "cpi"]);
+const CHANGE_DIRECTORY_COMMANDS = new Set(["cd", "pushd", "set-location", "sl", "chdir"]);
 const SEED_SOURCE_NAME = new RegExp(`^\\.env(\\.(${[...SCHEMA_SUFFIXES].join("|")}))?$`, "i");
 
-const folderAndName = (value) => {
-  const normalized = path.posix.normalize(value.replace(/\\/g, "/")).toLowerCase();
-  const slash = normalized.lastIndexOf("/");
-  return slash === -1 ? [".", normalized] : [normalized.slice(0, slash) || "/", normalized.slice(slash + 1)];
+// Resolved against the folder the command runs in, so ./x, x and an absolute path to x agree.
+const folderAndName = (value, cwd) => {
+  const resolved = path.resolve(cwd, toNativePath(value)).replace(/\\/g, "/").toLowerCase();
+  const slash = resolved.lastIndexOf("/");
+  return [resolved.slice(0, slash) || "/", resolved.slice(slash + 1)];
 };
 
 // .env.local from any schema; the bare .env (itself a schema, TV 00 #7) only from a suffixed schema.
-const isSeedPair = (source, destination) => {
+const isSeedPair = (source, destination, cwd) => {
   if (typeof source !== "string" || typeof destination !== "string") return false;
-  const [sourceFolder, sourceName] = folderAndName(source);
-  const [destinationFolder, destinationName] = folderAndName(destination);
+  const [sourceFolder, sourceName] = folderAndName(source, cwd);
+  const [destinationFolder, destinationName] = folderAndName(destination, cwd);
   if (sourceFolder !== destinationFolder || !SEED_SOURCE_NAME.test(sourceName)) return false;
   return destinationName === ".env.local" || (destinationName === ".env" && sourceName !== ".env");
 };
 
-const isEnvTracked = (dir) =>
-  spawnSync("git", ["-C", dir, "ls-files", "--error-unmatch", "--", ".env"], { encoding: "utf8", timeout: 5000 }).status === 0;
+const isTrackedIn = (dir, fileName) =>
+  spawnSync("git", ["-C", dir, "ls-files", "--error-unmatch", "--", fileName], { encoding: "utf8", timeout: 5000 }).status === 0;
 
 // Git Bash spells C:\x as /c/x, which path.resolve on Windows would read as C:\c\x.
 const toNativePath = (value) => (process.platform === "win32" ? value.replace(/^\/([a-z])(?=\/|$)/i, "$1:") : value);
@@ -80,12 +88,18 @@ const findSecretIn = (value, baseDir, isEnvRuleSkipped = false, isWhitespaceSpli
     if (SECRET_PATH.test(lowerFragment) && !PUBLIC_KEY.test(lowerFragment)) return fragment;
     if (isEnvRuleSkipped) continue;
     const baseName = lowerFragment.slice(lowerFragment.lastIndexOf("/") + 1);
+    const folder = fragment.slice(0, fragment.length - baseName.length) || ".";
+    const folderPath = () => path.resolve(baseDir, toNativePath(folder.replace(HOME_TOKEN, HOME_PATH)));
+    if (baseName === NPMRC) {
+      if (canonicalPath(folderPath()) === HOME_PATH) return "~/.npmrc";
+      if (GLOB.test(folder) || !isTrackedIn(folderPath(), NPMRC)) return UNTRACKED_NPMRC;
+      continue;
+    }
     const envMatch = ENV_FILE.exec(baseName);
     if (!envMatch || SCHEMA_SUFFIXES.has(envMatch[1]) || isEnvSourceCode(baseName)) continue;
     if (envMatch[1]) return baseName;
-    const folder = fragment.slice(0, fragment.length - baseName.length) || ".";
     if (GLOB.test(folder)) return ".env (under a glob)";
-    if (!isEnvTracked(path.resolve(baseDir, toNativePath(folder)))) return ".env (untracked)";
+    if (!isTrackedIn(folderPath(), ".env")) return ".env (untracked)";
   }
   return null;
 };
@@ -149,7 +163,8 @@ const LISTING_CONSUMERS = new Set(["select-object", "select", "where-object", "w
 const LISTING_COMMANDS = new Set(["get-childitem", "gci", "ls", "dir", "get-item", "gi"]);
 // A literal string piped into one of these is written to a file, not read from one.
 const PIPE_WRITERS = new Set(["set-content", "add-content", "sc", "ac", "out-file"]);
-const NON_READING_GIT = new Set(["rm", "add", "check-ignore", "ls-files", "status", "clean"]);
+// git restore writes a file from the index or a commit; it never shows its content.
+const NON_READING_GIT = new Set(["rm", "add", "check-ignore", "ls-files", "status", "clean", "restore"]);
 const CONTENT_WRITERS = new Set(["set-content", "add-content", "sc", "ac"]);
 const CONTENT_OPTIONS_WITH_VALUE = /^-(encoding|stream|filter|include|exclude|credential|delimiter)$/i;
 const FILE_REDIRECTS = new Set([">", ">>", "<", "&>", "&>>", ">&", "*>", "*>>"]);
@@ -343,6 +358,12 @@ const envLoaderIndexes = (values) => {
   return indexes;
 };
 
+// vercel env pull .env.local writes the project's variables into the file and prints none of them.
+const vercelEnvPullIndexes = (values) => {
+  const vercelAt = values.findIndex((value, index) => commandBaseName(value) === "vercel" && values[index + 1] === "env" && values[index + 2] === "pull");
+  return vercelAt === -1 ? [] : values.slice(vercelAt + 3).flatMap((value, offset) => (value.startsWith("-") ? [] : [vercelAt + 3 + offset]));
+};
+
 // git log -- .env.local lists the commits that touched it: history, not content, unless a patch is asked for.
 const isGitHistoryOnly = (values, git) =>
   git?.subcommand === "log" && !values.slice(git.subcommandIndex + 1).some((value) => /^(-p|-u|--patch|-U\d*|--unified(=.*)?)$/.test(value));
@@ -364,8 +385,12 @@ const unreadWordIndexes = (values, name, args, commandIndex, git) => {
   const fromArgs = (indexes, offset) => indexes.map((index) => offset + index);
   const always = [
     ...envLoaderIndexes(values),
+    ...vercelEnvPullIndexes(values),
     ...values.flatMap((value, index) => (COMPARISON_OPERATOR.test(values[index - 1] ?? "") ? [index] : []))
   ];
+  // rg --files lists names, so its -g globs select names to print, not content to read.
+  if (name === "rg" && args.includes("--files"))
+    return [...always, ...fromArgs(args.flatMap((word, index) => (/^(-g|--glob)$/.test(args[index - 1] ?? "") || /^--glob=/.test(word) ? [index] : [])), commandIndex + 1)];
   if (GREP_COMMANDS.has(name)) return [...always, ...fromArgs([...grepPatternIndexes(args), ...grepExcludeIndexes(args)], commandIndex + 1)];
   if (name === "select-string" || name === "sls") return [...always, ...fromArgs(selectStringPatternIndexes(args), commandIndex + 1)];
   if (name === "find") return [...always, ...fromArgs(findPatternIndexes(args), commandIndex + 1)];
@@ -397,32 +422,45 @@ const pathOperands = (args) => {
 };
 
 // cp .env.example .env.local, Copy-Item -Path .env.example -Destination .env.local -ErrorAction Stop.
-const isSeedCopy = (name, args) => {
+const isSeedCopy = (name, args, cwd) => {
   if (!SEED_COMMANDS.has(name)) return false;
   const { named, positional } = pathOperands(args);
   const source = named.source ?? positional.shift();
   const destination = named.destination ?? positional.shift();
-  return positional.length === 0 && isSeedPair(source, destination);
+  return positional.length === 0 && isSeedPair(source, destination, cwd);
 };
 
 // cat .env.example > .env.local: the same seed, written as a redirect. The schema's bytes go to the
-// file, never to the terminal, so exactly one source and exactly one redirect to the seed.
+// file, never to the terminal, so exactly one source and exactly one redirect to the seed. sed may
+// transform it on the way (sed 's/3000/3001/' .env.example > .env.local), but never edit in place.
 const SEED_PRINTERS = new Set(["cat", "type", "get-content", "gc"]);
 const printedSeedSource = (name, args) => {
-  const sources = args.filter((word) => !word.startsWith("-"));
-  return SEED_PRINTERS.has(name) && sources.length === 1 ? sources[0] : null;
+  const operands = args.filter((word) => !word.startsWith("-"));
+  if (SEED_PRINTERS.has(name)) return operands.length === 1 ? operands[0] : null;
+  if (name !== "sed" || args.some((word) => /^(-i|--in-place)/.test(word))) return null;
+  // Without -e or -f, sed's first operand is its script, not a file.
+  const files = args.some((word) => /^(-e|-f|--expression|--file)/.test(word)) ? operands : operands.slice(1);
+  return files.length === 1 ? files[0] : null;
 };
-const isSeedRedirect = (name, args, redirects) =>
-  redirects.length === 1 && redirects[0].operator === ">" && isSeedPair(printedSeedSource(name, args), redirects[0].target.value);
+const isSeedRedirect = (name, args, redirects, cwd) =>
+  redirects.length === 1 && redirects[0].operator === ">" && isSeedPair(printedSeedSource(name, args), redirects[0].target.value, cwd);
 
-// gc .env.example | Set-Content .env.local: the seed through a pipe, into a writer that names only the file.
+// gc .env.example | Set-Content .env.local: the seed through a pipe, into a writer that names only the
+// file. sourceCommand is what feeds the pipe, looking through (gc .env.example) -replace 'a','b'.
 const SEED_PIPE_WRITERS = new Set(["set-content", "sc", "out-file"]);
-const isSeedPipe = (name, args, pipedFrom) => {
-  if (!SEED_PIPE_WRITERS.has(name) || !pipedFrom || args.some((word) => /^-va(l(u(e)?)?)?(:|$)/i.test(word))) return false;
-  const source = stripCommandPrefix(pipedFrom.words.map((word) => word.value));
+const isSeedPipe = (name, args, sourceCommand, cwd) => {
+  if (!SEED_PIPE_WRITERS.has(name) || !sourceCommand || args.some((word) => /^-va(l(u(e)?)?)?(:|$)/i.test(word))) return false;
+  const source = stripCommandPrefix(sourceCommand.words.map((word) => word.value));
   const { named, positional } = pathOperands(args);
   const destination = named.source ?? positional.shift();
-  return positional.length === 0 && isSeedPair(printedSeedSource(source.name, source.args), destination);
+  return positional.length === 0 && isSeedPair(printedSeedSource(source.name, source.args), destination, cwd);
+};
+
+// ForEach-Object Name (or % Name) projects a property; only bare property names, never a script block.
+const FOREACH_COMMANDS = new Set(["foreach-object", "%", "foreach"]);
+const isPropertyProjection = (consumerName, consumer) => {
+  const args = stripCommandPrefix(consumer.words.map((word) => word.value)).args;
+  return FOREACH_COMMANDS.has(consumerName) && args.length > 0 && args.every((word) => /^[A-Za-z_][\w.]*$/.test(word));
 };
 
 // downstream is every command this one pipes into, in order: [] when nothing reads its output.
@@ -446,8 +484,10 @@ const findSecretInCommand = (command, masked, cwd, dialect, downstream) => {
   const isLiteralOutput =
     dialect === "windows" && command.words[commandIndex]?.isQuoted === true && !isWrapped && command.openedBy !== "&" &&
     (consumerName === null || PIPE_WRITERS.has(consumerName));
-  // Get-Item .env.local | Select-Object Length is still a listing; | Get-Content is a read.
-  const isListingOnly = LISTING_COMMANDS.has(name) && !isWrapped && downstreamNames.every((consumer) => LISTING_CONSUMERS.has(consumer));
+  // Get-Item .env.local | Select-Object Length and gci .env* | % Name are still listings; | Get-Content is a read.
+  const isListingOnly =
+    LISTING_COMMANDS.has(name) && !isWrapped &&
+    downstream.every((consumer, position) => LISTING_CONSUMERS.has(downstreamNames[position]) || isPropertyProjection(downstreamNames[position], consumer));
   const isTouchOnly = isListingOnly || EXISTENCE_CHECKS.has(name) || CREATE_COMMANDS.has(name) || DELETE_COMMANDS.has(name);
   const isNonReading = NON_READING_COMMANDS.has(name) || isLiteralOutput || (git !== null && NON_READING_GIT.has(git.subcommand));
   const unreadIndexes = unreadWordIndexes(values, name, args, commandIndex, git);
@@ -458,9 +498,10 @@ const findSecretInCommand = (command, masked, cwd, dialect, downstream) => {
     if (secret) return secret;
   }
   // Redirections always touch the file, whatever the command: echo x > .env.local overwrites a secret.
+  // The exception: >> on a project .npmrc appends a setting (auto-install-peers=true) and reads nothing.
   for (const redirect of command.redirects.filter((candidate) => FILE_REDIRECTS.has(candidate.operator))) {
     const secret = findSecretIn(redirect.target.value, cwd, false, !redirect.target.isQuoted);
-    if (secret) return secret;
+    if (secret && !(redirect.operator === ">>" && secret === UNTRACKED_NPMRC)) return secret;
   }
   return null;
 };
@@ -492,15 +533,29 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
   const quotedData = commands.flatMap((command) => command.words.filter((word) => word.isQuoted && word.substitutions.length === 0));
   if (PIPE_TO_SHELL.some((pattern) => pattern.test(maskWords(text, new Set([...masked, ...quotedData]))))) return "pipe-to-shell";
   const pipeConsumers = new Map(commands.filter((command) => command.pipedFrom).map((command) => [command.pipedFrom, command]));
+  // What feeds a pipe: its left side, or for (gc x) -replace 'a','b' | ..., the (gc x) inside the parentheses.
+  const pipeSourceOf = (command) => {
+    const feeder = command.pipedFrom;
+    if (!feeder || !/^-[ci]?replace$/i.test(feeder.words[0]?.value ?? "")) return feeder;
+    const grouped = commands[commands.indexOf(feeder) - 1];
+    return grouped?.openedBy === "(" ? grouped : null;
+  };
   const downstreamOf = (command) => {
     const chain = [];
     for (let consumer = pipeConsumers.get(command); consumer; consumer = pipeConsumers.get(consumer)) chain.push(consumer);
     return chain;
   };
 
+  // cd apps/web && cat .env: later commands run in apps/web, so the tracked check and the seed's folder
+  // are resolved there. Only a literal path moves it; cd "$DIR" leaves the session's folder in place.
+  let commandCwd = cwd;
   for (const command of commands) {
     const values = command.words.map((word) => word.value);
-    const { name, args } = stripCommandPrefix(values);
+    const { name, args, commandIndex } = stripCommandPrefix(values);
+    const pathWords = command.words.slice(commandIndex + 1).filter((word) => !word.value.startsWith("-"));
+    const isLiteralChdir =
+      CHANGE_DIRECTORY_COMMANDS.has(name) && pathWords.length === 1 && !pathWords[0].hasExpansion && pathWords[0].substitutions.length === 0;
+    if (isLiteralChdir) commandCwd = path.resolve(commandCwd, toNativePath(pathWords[0].value.replace(HOME_TOKEN, HOME_PATH)));
     const nested = [...command.words, ...command.redirects.map((redirect) => redirect.target)]
       .flatMap((word) => word.substitutions.map((inner) => ({ text: inner, dialect })))
       .concat(wrappedPayload(name, args) ?? []);
@@ -513,8 +568,10 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
     if (isCatastrophicDelete(name, args) || isCatastrophicFind(name, args) || isCatastrophicXargs(name, args, command.pipedFrom) || isPipedRemove)
       return "recursive delete on root/home";
     if (isForcePush(values)) return "force push";
-    const isSeed = isSeedCopy(name, args) || isSeedRedirect(name, args, command.redirects) || isSeedPipe(name, args, command.pipedFrom);
-    const secret = isSeed ? null : findSecretInCommand(command, masked, cwd, dialect, downstreamOf(command));
+    const isSeed =
+      isSeedCopy(name, args, commandCwd) || isSeedRedirect(name, args, command.redirects, commandCwd) ||
+      isSeedPipe(name, args, pipeSourceOf(command), commandCwd);
+    const secret = isSeed ? null : findSecretInCommand(command, masked, commandCwd, dialect, downstreamOf(command));
     if (secret) return `secret file ${secret}`;
   }
 

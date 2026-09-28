@@ -9,7 +9,8 @@ const { EM_DASH } = require("./code-extensions.js");
 const { readInput, cwdOf } = require("./hook-input.js");
 
 const TYPES = "feat|fix|docs|style|refactor|test|build|ci|perf|chore|revert";
-const SUBJECT = new RegExp(`^((${TYPES})(\\([a-z0-9-]+\\))?!?: |\\[[a-z0-9-]+\\] )\\S`);
+// TV 11 sets no character set for a scope, so ui/button, @acme/ui, api,web and NotesList all pass.
+const SUBJECT = new RegExp(`^((${TYPES})(\\([^()\\s]+\\))?!?: |\\[[a-z0-9-]+\\] )\\S`);
 // -m "$(cat <<'EOF' ... EOF)", once extractHeredocs has swapped the body for its marker.
 const CAT_HEREDOC = /^\$\(\s*cat\s+<<\s*__HEREDOC_(\d+)__\s*\)$/;
 // Short options of git commit that take a value, so -am, -mfoo and -m foo parse the way git parses them.

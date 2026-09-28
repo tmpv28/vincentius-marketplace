@@ -32,7 +32,8 @@
     transition: opacity 0.15s linear;
   }
 
-  &:hover &__bubble {
+  &:hover &__bubble,
+  &:focus-within &__bubble {
     opacity: 1;
   }
 

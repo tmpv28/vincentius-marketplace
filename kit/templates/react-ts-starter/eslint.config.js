@@ -52,6 +52,7 @@ export default typescriptEslint.config(
       "@typescript-eslint/no-redeclare": "error",
       "unused-imports/no-unused-imports": "error",
       "react-hooks/rules-of-hooks": "error",
+      "no-nested-ternary": "error",
 
       // Two rules Airbnb contributed that are worth keeping on their own merits rather than
       // losing with the config that happened to carry them.

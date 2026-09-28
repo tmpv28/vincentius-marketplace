@@ -27,18 +27,25 @@ export const isDenied = (result) => result.stdout.includes('"deny"');
 
 export const makeTempDir = (prefix) => mkdtempSync(join(tmpdir(), `vm-${prefix}-`));
 
-// A git repo whose .env is committed (a schema, per TV 00 #7) or merely present (a secret).
-export const makeEnvRepo = (tracked) => {
-  const dir = makeTempDir(tracked ? "env-tracked" : "env-untracked");
+// A git repo holding `files` (path inside the repo -> content), of which the `tracked` paths are committed.
+export const makeGitRepo = (prefix, files, tracked = []) => {
+  const dir = makeTempDir(prefix);
   const git = (...args) => spawnSync("git", ["-C", dir, ...args], { encoding: "utf8" });
   git("init", "-q");
-  writeFileSync(join(dir, ".env"), tracked ? "API_KEY=\n" : "API_KEY=real-value\n");
-  if (tracked) {
-    git("add", ".env");
+  for (const [relativePath, content] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, relativePath)), { recursive: true });
+    writeFileSync(join(dir, relativePath), content);
+  }
+  if (tracked.length > 0) {
+    git("add", "--", ...tracked);
     git("-c", "user.email=test@example.com", "-c", "user.name=test", "commit", "-q", "-m", "init");
   }
   return dir;
 };
+
+// A git repo whose .env is committed (a schema, per TV 00 #7) or merely present (a secret).
+export const makeEnvRepo = (tracked) =>
+  makeGitRepo(tracked ? "env-tracked" : "env-untracked", { ".env": tracked ? "API_KEY=\n" : "API_KEY=real-value\n" }, tracked ? [".env"] : []);
 
 // `files` maps a path inside the package to its content, for the script std:check runs (or a broken
 // package.json, which replaces the generated one).

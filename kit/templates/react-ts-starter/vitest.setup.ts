@@ -1,6 +1,5 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import "@testing-library/jest-dom";
 import { vi } from "vitest";
 
 ReactDOM.createPortal = vi.fn((element: React.ReactNode) => {

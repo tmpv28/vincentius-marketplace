@@ -9,11 +9,12 @@ import {
   isUndefined
 } from "./isSpecificType";
 
+type NonBooleanValueType = string | number | object | symbol | bigint | null | undefined;
+
 /**
  * @param value Value to be verified.
  * @returns *true* if it is null, undefined, blank, or an empty container.
  */
-type NonBooleanValueType = string | number | object | symbol | bigint | null | undefined;
 export function isNullOrEmpty(
   value: NonBooleanValueType
 ): value is null | undefined | "" | [] | Record<string, never> | NaNDateType {

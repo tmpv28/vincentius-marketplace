@@ -144,11 +144,13 @@ keep stale data on screen behind an opacity of zero.
 ## Nested ternaries (TV 04)
 
 Nested ternaries happen. When one does, disable the rule **on the expression, with its reason**,
-rather than stacking a bare file-wide disable at the top:
+rather than stacking a bare file-wide disable at the top. The directive sits on the line directly
+above the expression, with its reason after `--` on the same line; a longer why goes in a comment
+above the directive:
 
 ```typescript
-// eslint-disable-next-line no-nested-ternary -- status is a three-way enum; a chain of ifs
-// here would move the decision out of the JSX and away from what it renders.
+// A chain of ifs here would move the decision out of the JSX and away from what it renders.
+// eslint-disable-next-line no-nested-ternary -- status is a three-way enum
 const statusColor = isBlocked ? "red" : isPending ? "yellow" : "green";
 ```
 

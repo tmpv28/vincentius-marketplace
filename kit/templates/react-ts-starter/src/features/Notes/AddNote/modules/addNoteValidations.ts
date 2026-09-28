@@ -28,7 +28,7 @@ export const validateAddNoteFields = (noteData: API_AddNoteType): AddNoteButtons
       })
     };
 
-  if (!isNullOrEmpty(noteData.body) && (noteData.body as string).length > maxBodyLength)
+  if (!isNullOrEmpty(noteData.body) && noteData.body.length > maxBodyLength)
     return {
       actionTrigger: actionTriggerResponseObj,
       saveChanges: createResponseObject({

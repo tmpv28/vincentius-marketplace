@@ -50,6 +50,7 @@ It runs, in order:
 | 1 | `prettier --write`, then `eslint --fix`. Mutating. |
 | 2 | `tsc --noEmit --skipLibCheck` |
 | 3 | `eslint`, report only |
+| 4 | `stylelint` over every SCSS file, report only |
 | — | Boxed summary, non-zero exit on anything fatal |
 
 Step 0 exists because a merge conflict marker makes every other tool produce nonsense, and
