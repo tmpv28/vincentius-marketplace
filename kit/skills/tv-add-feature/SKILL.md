@@ -12,7 +12,7 @@ One operation on one entity, end to end, in `src/features/<Entity>/<Operation><E
 
 Read, with the Read tool, the reference feature of the same kind before writing anything:
 
-- a mutation (`Add`, `Edit`, `Delete`): `src/features/<Ref>/Add<Ref>/` in full, including `modules/`
+- a mutation (`Add`, `Edit`, `Delete`): `src/features/<Ref>/Add<RefSingular>/` (in the template, `Notes/AddNote`) in full, including `modules/`
 - a list surface (`Manage`): `src/features/<Ref>/Manage<Ref>/` in full, including `modules/constants/`
 
 The reference is the one the project's `CLAUDE.md` names, else the template at

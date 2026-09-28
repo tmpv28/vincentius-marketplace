@@ -157,7 +157,7 @@ or were restatements of a section that owns the topic.
 | standards/09-testing.md | Phrasing | testing.md |
 | standards/09-testing.md | Shape | testing.md |
 | standards/09-testing.md | Mocking | testing.md |
-| standards/09-testing.md | Dates | core.md |
+| standards/09-testing.md | Dates | testing.md |
 | standards/09-testing.md | Setup | testing.md |
 | standards/09-testing.md | Test-first, where it earns it | core.md |
 | standards/09-testing.md | Before finishing | core.md |

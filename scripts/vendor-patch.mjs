@@ -26,7 +26,7 @@ if (!entry) fail(`no vendor.json entry: ${name}`, 2);
 const patches = entry.patches || [];
 const work = join(VENDOR, name, ".work");
 const marker = join(work, BASE_MARKER);
-const sameList = (a, b) => a.length === b.length && a.every((patch, index) => patch === b[index]);
+const areSameLists = (a, b) => a.length === b.length && a.every((patch, index) => patch === b[index]);
 
 if (command === "start") {
   if (existsSync(work) && !isForced) fail(`vendor/${name}/.work already exists and may hold unsaved edits; save it, or rerun with --force to discard it`);
@@ -45,7 +45,7 @@ if (command === "start") {
   // Saving over patch N diffs against the patches before it, so the work copy must hold N and nothing after.
   const expectedBase = isReplacing ? patches.slice(0, index + 1) : patches;
   const { patches: startedFrom } = JSON.parse(readFileSync(marker, "utf8"));
-  if (!sameList(startedFrom, expectedBase))
+  if (!areSameLists(startedFrom, expectedBase))
     fail(`vendor/${name}/.work was started from [${startedFrom.join(", ")}]; to save ${patchName} start it with: node scripts/vendor-patch.mjs start ${name}${isReplacing ? ` ${patchName}` : ""} --force`);
 
   const stage = mkdtempSync(join(tmpdir(), `vendor-patch-${name}-`));

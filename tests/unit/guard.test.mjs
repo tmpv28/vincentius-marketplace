@@ -143,7 +143,30 @@ const DELETES = [
   ["Bash", { command: "cmd //k rmdir /s /q C:/Users" }, "deny"],
   ["Bash", { command: 'rm -rf "$SYSTEMDRIVE/"' }, "deny"],
   ["Bash", { command: "rm -rf ${HOMEDRIVE}" }, "deny"],
-  ["Bash", { command: 'rm -rf "$SYSTEMDRIVE/tmp/build"' }, "allow"]
+  ["Bash", { command: 'rm -rf "$SYSTEMDRIVE/tmp/build"' }, "allow"],
+  // Pass 3: parameter expansion, eval, arithmetic shifts and PowerShell's pipe-fed Remove-Item.
+  ["Bash", { command: 'rm -rf "${HOME:?}"' }, "deny"],
+  ["Bash", { command: 'rm -rf "${HOME:-/tmp/x}/"' }, "deny"],
+  ["Bash", { command: 'rm -rf "${HOME:?}/proj/dist"' }, "allow"],
+  ["Bash", { command: 'eval "rm -rf /"' }, "deny"],
+  ["Bash", { command: "echo $((1 << n))\nrm -rf /" }, "deny"],
+  ["PowerShell", { command: `Get-ChildItem C:${B} | Remove-Item -Recurse -Force` }, "deny"],
+  ["PowerShell", { command: "Get-ChildItem ~ -Recurse | Remove-Item" }, "deny"],
+  ["PowerShell", { command: `Get-ChildItem .${B}dist | Remove-Item -Recurse` }, "allow"],
+  ["Bash", { command: "ls ~ | rm -rf" }, "allow"]
+];
+
+// Pass 3: PowerShell here-strings are text, and its cmdlets that write or test a file do not read it.
+const POWERSHELL = [
+  ["PowerShell", { command: "Set-Content README.md @'\nRun: cat <<EOF\nthen\n'@\nRemove-Item -Recurse -Force ~" }, "deny"],
+  ["PowerShell", { command: "Test-Path .env" }, "allow"],
+  ["PowerShell", { command: "Add-Content .gitignore '.env.local'" }, "allow"],
+  ["PowerShell", { command: "Set-Content -Path notes.md -Value @'\nSee config/.env.local and more\n'@" }, "allow"],
+  ["PowerShell", { command: "Write-Output 'copy .env.example to .env.local'" }, "allow"],
+  ["PowerShell", { command: "'.env.local' >> .gitignore" }, "allow"],
+  ["PowerShell", { command: "Get-Content .env.local" }, "deny"],
+  ["PowerShell", { command: "Set-Content -Path .env.local -Value 'KEY=1'" }, "deny"],
+  ["Bash", { command: 'cat "config/.env.local and more"' }, "deny"]
 ];
 
 // Finding 5: pipe-to-shell in every shape, and prose that only mentions it.
@@ -207,6 +230,9 @@ const MORE_SECRETS = [
   ["Grep", { pattern: "KEY", glob: ".env*" }, "deny"],
   ["Grep", { pattern: "KEY", glob: "*.{ts,tsx}" }, "allow"],
   ["Bash", { command: "git log --grep=id_rsa" }, "allow"],
+  ["Bash", { command: 'gh pr create -t "stop reading .env.local" -b "see .env.local"' }, "allow"],
+  ["Bash", { command: "cat $'.env.local'" }, "deny"],
+  ["Bash", { command: "echo $'line one\\n.env.local'" }, "allow"],
   ["Bash", { command: "git log --grep id_rsa --oneline" }, "allow"],
   ["Bash", { command: "cat ~/.ssh/id_rsa" }, "deny"]
 ];
@@ -227,6 +253,7 @@ describe("guard.js", () => {
   describe("when a download is piped into a shell", () => runCases(PIPE_TO_SHELL));
   describe("when a command names a .env without reading it", () => runCases(NON_READING));
   describe("when another credential file is named", () => runCases(MORE_SECRETS));
+  describe("when PowerShell writes, tests or quotes a file name", () => runCases(POWERSHELL));
 
   describe("when the .env is committed (a schema, TV 00 #7)", () => {
     it("allows reading it", () => assert.equal(check(trackedRepo, "Bash", { command: "cat .env" }), false));

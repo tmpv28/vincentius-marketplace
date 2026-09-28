@@ -131,3 +131,9 @@ Recorded as they happen, in the shape: what was wrong, what was checked, what is
   whole-line heredoc terminators, one hook-input helper.
 - Phase 9 note: the real ~/.claude holds the Phase 0 guard.js, which the kit does not own; install there
   with --force (it backs the file up first).
+- Pass 3 (hooks, installer, rules): nothing blocking, not clean. Hooks: PowerShell backtick escapes, no
+  heredoc parsing for PowerShell, PowerShell write/test false positives, UTF-8 stdin across chunks, plus
+  eval, ${HOME:?}, $((<<)), $'...' and Get-ChildItem | Remove-Item. Installer: isRunDirectly by real path
+  (junctions), kit hooks swept in every event, pre-0.2 manifests hashed against today's kit, one
+  vendor-check allow rule per source. Rules: "Dates" moved to testing; stale .claude/memory and
+  template README paths fixed; rules-map --check rejects an unlabelled section.

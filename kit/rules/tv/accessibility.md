@@ -21,7 +21,7 @@ Precedence: a pack beats the core where it is more specific. A collision means o
 
 ## Accessibility (TV 04)
 
-Short, because most of it falls out of conventions already in this file, and non-negotiable
+Short, because most of it falls out of the component conventions in the react pack, and non-negotiable
 because the rest of the standard actively creates the risk: mandated tooltips on disabled
 controls, modals, icon-only buttons, and an `!important`-heavy layer sitting on top of a
 third-party library's own styles.

@@ -180,3 +180,13 @@ reader knows where `expect` came from.
 
 `vitest.setup.ts` fills jsdom gaps only: `matchMedia`, `ResizeObserver`, portals flattened to
 identity. Nothing about the app goes in there.
+
+---
+
+<!-- from standards/09-testing.md -->
+
+## Dates (TV 09)
+
+Always `Date.UTC(...)`-constructed, always asserted against a literal. Never `new Date()` in a
+test, never a local-timezone constructor. A test that passes in Lisbon and fails in Denver is not
+a test.

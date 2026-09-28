@@ -47,7 +47,7 @@
 
 ## The diff
 
-- [ ] One logical change per commit. No commit description needs an "and".
+- [ ] One logical change per commit. No commit description joins two reasons with an "and".
 - [ ] Refactors separated from behaviour changes.
 - [ ] Commit messages conventional, or campaign-tagged if this is a migration.
 - [ ] No generated files, no secrets, no `.env` values.

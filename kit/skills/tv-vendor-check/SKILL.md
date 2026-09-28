@@ -7,7 +7,8 @@ argument-hint: [--bump <name>]
 
 # Vendor check
 
-The monthly upstream check. Read-only unless I ask for a bump.
+The monthly upstream check. Read-only unless I ask for a bump. Bumps need the clone route: on the plugin route
+`source` is the plugin cache, which the next plugin update replaces, so a bump there is lost.
 
 ## Steps
 

@@ -31,6 +31,13 @@ describe("em-dash-notice.js", () => {
     assert.match(notice({ notebook_path: "analysis.ipynb", new_source: `# a ${EM_DASH} b` }, "NotebookEdit"), /em-dash/);
   });
 
+  it("reads an em-dash whose bytes straddle the 64 KiB stdin chunk boundary", () => {
+    const head = `{"tool_name":"Write","tool_input":{"file_path":"a.ts","content":"`;
+    const input = `${head}${"x".repeat(65534 - Buffer.byteLength(head))}${EM_DASH}"}}`;
+    assert.equal(Buffer.byteLength(input.slice(0, input.indexOf(EM_DASH))), 65534);
+    assert.match(runHook("em-dash-notice.js", input).stdout, /em-dash/);
+  });
+
   it("stays silent for long-form prose, where TV 00 #5 allows them", () => {
     assert.equal(notice({ file_path: "docs/guide.md", content: `A ${EM_DASH} B` }), "");
   });

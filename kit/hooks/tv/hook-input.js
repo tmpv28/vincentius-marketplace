@@ -5,6 +5,8 @@
 const readInput = () =>
   new Promise((resolve) => {
     let raw = "";
+    // Decoded by the stream, so a multibyte character split across two chunks arrives whole.
+    process.stdin.setEncoding("utf8");
     process.stdin.on("data", (chunk) => (raw += chunk)).on("end", () => {
       try {
         const input = JSON.parse(raw);

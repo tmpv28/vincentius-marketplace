@@ -30,12 +30,12 @@ const isEnvTracked = (dir) =>
 // Git Bash spells C:\x as /c/x, which path.resolve on Windows would read as C:\c\x.
 const toNativePath = (value) => (process.platform === "win32" ? value.replace(/^\/([a-z])(?=\/|$)/i, "$1:") : value);
 
-// One word can name several files (a,b  -Path:x  {a,b}  x::$DATA), and NTFS ignores case and a
-// trailing dot, so each spelling is reduced to the file Windows would actually open.
+// One word can name several files (a,b  -Path:x  {a,b}  x::$DATA  "see a and b"), and NTFS ignores
+// case and a trailing dot, so each spelling is reduced to the file Windows would actually open.
 const pathFragments = (value) =>
   value
     .replace(/\\/g, "/")
-    .split(/[,{}=<>()]/)
+    .split(/[,{}=<>()\s]/)
     .flatMap((part) => part.split(/(?<!^[A-Za-z]):/))
     .map((part) => part.replace(/["']/g, "").replace(/[.\s]+$/, ""))
     .filter((part) => part !== "");
@@ -65,7 +65,8 @@ const findSecretIn = (value, baseDir, isEnvRuleSkipped = false) => {
 // ─── Catastrophic targets ───────────────────────────────────
 
 // Home and the system drive, spelled every way a shell on this machine might spell them.
-const HOME_TOKEN = /^(~|\$\{?home\}?|\$\{?userprofile\}?|\$env:(userprofile|home)|%userprofile%)(?=\/|$)/i;
+// ${HOME:?} and ${HOME:-x} are still home; ${HOME:+x} is x, so it is not listed.
+const HOME_TOKEN = /^(~|\$home|\$userprofile|\$\{(home|userprofile)(:?[-?=][^}]*)?\}|\$env:(userprofile|home)|%userprofile%)(?=\/|$)/i;
 const DRIVE_TOKEN = /^(\$env:(homedrive|systemdrive)|\$\{?(homedrive|systemdrive)\}?|%(homedrive|systemdrive)%)(?=\/|$)/i;
 const DOTS_ONLY = /^\.\.?(\/\.\.?)*$/;
 
@@ -99,8 +100,10 @@ const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
 const HEREDOC_INTERPRETERS = new Set([...SHELLS, "pwsh", "powershell", "python", "python3", "node"]);
 const XARGS_OPTIONS_WITH_VALUE = new Set(["-n", "-L", "-P", "-I", "-d", "-E", "-s", "-a"]);
 
-const NON_READING_COMMANDS = new Set(["echo", "printf", "test", "[", "[[", "ls"]);
+const NON_READING_COMMANDS = new Set(["echo", "printf", "test", "[", "[[", "ls", "test-path", "write-host", "write-output"]);
 const NON_READING_GIT = new Set(["rm", "add", "check-ignore", "ls-files", "status"]);
+const CONTENT_WRITERS = new Set(["set-content", "add-content", "sc", "ac"]);
+const CONTENT_OPTIONS_WITH_VALUE = /^-(encoding|stream|filter|include|exclude|credential|delimiter)$/i;
 const FILE_REDIRECTS = new Set([">", ">>", "<", "&>", "&>>", ">&"]);
 const MESSAGE_OPTIONS = new Set(["-m", "--message", "--body", "--title"]);
 const GREP_COMMANDS = new Set(["grep", "egrep", "fgrep", "rg"]);
@@ -156,6 +159,16 @@ const isCatastrophicXargs = (name, args, pipedFrom) => {
   return isCatastrophicDelete(inner.name, [...inner.args, ...fedTargets]);
 };
 
+// Get-ChildItem C:\ | Remove-Item -Recurse: PowerShell's xargs, where the targets arrive through the pipe.
+const LISTING_COMMANDS = new Set(["get-childitem", "gci", "ls", "dir", "get-item", "gi"]);
+const isCatastrophicPipedRemove = (name, args, pipedFrom) => {
+  if (!DELETE_COMMANDS.has(name) || !pipedFrom) return false;
+  const source = stripCommandPrefix(pipedFrom.words.map((word) => word.value));
+  if (!LISTING_COMMANDS.has(source.name)) return false;
+  const isRecursive = args.some(isRecursiveFlag) || source.args.some(isRecursiveFlag);
+  return isRecursive && deleteTargets(source.name, source.args).some((target) => isCatastrophicTarget(target));
+};
+
 const isForcePush = (words) => {
   const git = parseGitInvocation(words);
   if (!git || git.subcommand !== "push") return false;
@@ -164,8 +177,9 @@ const isForcePush = (words) => {
     .some((word) => word === "--force" || word === "--mirror" || /^-[a-zA-Z]*f[a-zA-Z]*$/.test(word) || /^\+./.test(word));
 };
 
-// The command text a wrapper runs: bash -c "...", pwsh -Command ..., cmd /c ...
+// The command text a wrapper runs: bash -c "...", eval "...", pwsh -Command ..., cmd /c ...
 const wrappedPayload = (name, args) => {
+  if (name === "eval") return args.length === 0 ? null : { text: args.join(" "), dialect: "posix" };
   if (SHELLS.has(name)) {
     const flagIndex = args.findIndex((word) => /^-[a-z]*c[a-z]*$/.test(word));
     return flagIndex === -1 || flagIndex + 1 >= args.length ? null : { text: args[flagIndex + 1], dialect: "posix" };
@@ -185,13 +199,15 @@ const wrappedPayload = (name, args) => {
 const messageWords = (command) => {
   const values = command.words.map((word) => word.value);
   const isGit = parseGitInvocation(values) !== null;
+  const isGh = stripCommandPrefix(values).name === "gh";
   return command.words.filter((word, index) => {
     if (word.substitutions.length > 0) return false;
     const previous = values[index - 1] ?? "";
     return (
       MESSAGE_OPTIONS.has(previous) ||
       /^--(message|body|title)=/.test(word.value) ||
-      (isGit && (/^-[a-zA-Z]+m$/.test(previous) || /^-m./.test(word.value)))
+      (isGit && (/^-[a-zA-Z]+m$/.test(previous) || /^-m./.test(word.value))) ||
+      (isGh && (previous === "-t" || previous === "-b"))
     );
   });
 };
@@ -211,17 +227,38 @@ const grepPatternIndexes = (args) => {
   return [];
 };
 
-const findSecretInCommand = (command, masked, cwd) => {
+// Set-Content's text, given by -Value or as the positional argument after the path, is written, not read.
+const contentValueIndexes = (args) => {
+  const valueIndexes = [];
+  const positionalIndexes = [];
+  let hasNamedPath = false;
+  for (let index = 0; index < args.length; index++) {
+    const word = args[index];
+    if (/^-va(l(u(e)?)?)?:/i.test(word)) valueIndexes.push(index);
+    else if (/^-va(l(u(e)?)?)?$/i.test(word)) valueIndexes.push(++index);
+    else if (/^-(path|literalpath|lp|pspath)(:|$)/i.test(word)) {
+      hasNamedPath = true;
+      if (!word.includes(":")) index++;
+    } else if (CONTENT_OPTIONS_WITH_VALUE.test(word)) index++;
+    else if (!word.startsWith("-")) positionalIndexes.push(index);
+  }
+  return [...valueIndexes, ...positionalIndexes.slice(hasNamedPath ? 0 : 1)];
+};
+
+const findSecretInCommand = (command, masked, cwd, dialect) => {
   const values = command.words.map((word) => word.value);
   const { name, args, commandIndex } = stripCommandPrefix(values);
   const git = parseGitInvocation(values);
-  const isNonReading = NON_READING_COMMANDS.has(name) || (git !== null && NON_READING_GIT.has(git.subcommand));
+  // A PowerShell statement that is only a string ('.env.local' >> .gitignore) writes that text, like echo.
+  const isLiteralOutput = dialect === "windows" && command.words[commandIndex]?.isQuoted === true;
+  const isNonReading = NON_READING_COMMANDS.has(name) || isLiteralOutput || (git !== null && NON_READING_GIT.has(git.subcommand));
   const patternIndexes = GREP_COMMANDS.has(name) ? grepPatternIndexes(args).map((index) => commandIndex + 1 + index) : [];
+  const contentIndexes = CONTENT_WRITERS.has(name) ? contentValueIndexes(args).map((index) => commandIndex + 1 + index) : [];
   // git log --grep=id_rsa searches commit messages; the value is a pattern, not a path.
   const isGitSearchPattern = (index) => git !== null && (/^--grep=/.test(values[index]) || values[index - 1] === "--grep");
   for (const [index, word] of command.words.entries()) {
     if (masked.has(word) || patternIndexes.includes(index) || isGitSearchPattern(index)) continue;
-    const secret = findSecretIn(word.value, cwd, isNonReading);
+    const secret = findSecretIn(word.value, cwd, isNonReading || contentIndexes.includes(index));
     if (secret) return secret;
   }
   // Redirections always touch the file, whatever the command: echo x > .env.local overwrites a secret.
@@ -240,7 +277,8 @@ const maskWords = (text, words) =>
 // Heredoc bodies are masked unless a shell or interpreter receives them, because then they run.
 const findViolation = (commandText, dialect, cwd, depth = 0) => {
   if (depth > MAX_NESTING || commandText.trim() === "") return null;
-  const { text, heredocs } = extractHeredocs(commandText);
+  // PowerShell has no heredocs; a "<<EOF" inside one of its here-strings is only text.
+  const { text, heredocs } = dialect === "windows" ? { text: commandText, heredocs: [] } : extractHeredocs(commandText);
   const commands = splitCommands(lexCommand(text, dialect));
   const masked = new Set(commands.flatMap(messageWords));
   // Quoted text is data to the pipe scan (echo 'never curl x | sh'). A quoted payload that does run,
@@ -259,10 +297,12 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
       const violation = findViolation(payload.text, payload.dialect, cwd, depth + 1);
       if (violation) return violation;
     }
-    if (isCatastrophicDelete(name, args) || isCatastrophicFind(name, args) || isCatastrophicXargs(name, args, command.pipedFrom))
+    // Only PowerShell's Remove-Item reads its targets from the pipe; bash's rm ignores stdin.
+    const isPipedRemove = dialect === "windows" && isCatastrophicPipedRemove(name, args, command.pipedFrom);
+    if (isCatastrophicDelete(name, args) || isCatastrophicFind(name, args) || isCatastrophicXargs(name, args, command.pipedFrom) || isPipedRemove)
       return "recursive delete on root/home";
     if (isForcePush(values)) return "force push";
-    const secret = isSeed ? null : findSecretInCommand(command, masked, cwd);
+    const secret = isSeed ? null : findSecretInCommand(command, masked, cwd, dialect);
     if (secret) return `secret file ${secret}`;
   }
 

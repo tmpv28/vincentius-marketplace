@@ -566,7 +566,7 @@ One line on what was wrong. One on what is true. No paragraph about being more c
 
 ## Non-negotiables (TV 00)
 
-Everything else in this standard is a rule. This file is the set of rules I do not trade away for
+Everything else in this standard is a rule. This section is the set of rules I do not trade away for
 a deadline, a spike, a prototype, or "we will clean it up later". There has never been a later.
 
 ## 1. Reuse before creation (TV 00)
@@ -618,7 +618,7 @@ Comments, commit messages, UI strings, CLI output, JSDoc, type descriptions, PR 
 period, a semicolon, a colon, or delete the clause. Hyphens in compound words and section headers
 are fine.
 
-Long-form prose documentation is the exception; this file uses them. The rule is about text that
+Long-form prose documentation is the exception; these rules use them. The rule is about text that
 sits inside or next to code, where the em-dash is almost always a sentence that should have been
 two.
 
@@ -667,7 +667,7 @@ The corollary: nothing asked for is quietly dropped either.
 
 ## Naming (TV 02)
 
-Names are the interface. Everything in this file exists so that a name tells you what a thing is
+Names are the interface. Everything in this section exists so that a name tells you what a thing is
 and where it lives without opening it.
 
 ## Casing (TV 02)
@@ -790,7 +790,7 @@ one of the fastest ways to make a diff unreviewable.
 
 The rule and its one exception are stated in TV 00. In short: not in comments,
 commit messages, UI strings, CLI output, JSDoc or type descriptions; allowed in long-form prose
-documentation like this file.
+documentation like these rules.
 
 ## Numbered steps (TV 08)
 
@@ -899,12 +899,6 @@ Things I have corrected more than once go in Claude Code's auto memory, as the m
 
 <!-- from standards/09-testing.md -->
 
-## Dates (TV 09)
-
-Always `Date.UTC(...)`-constructed, always asserted against a literal. Never `new Date()` in a
-test, never a local-timezone constructor. A test that passes in Lisbon and fails in Denver is not
-a test.
-
 ## Test-first, where it earns it (TV 09)
 
 - **A bug fix starts with a failing test that reproduces it.** Not a test written afterwards that
@@ -999,9 +993,9 @@ does. What neither can, write down the failure mode.**
 
 A written convention decays. A generator does not.
 
-Alongside `CLAUDE.md`, `.claude/rules/` and `.claude/memory/`, a mature project gets a set of
-scaffolding skills in `.claude/skills/`: `add-entity`, `add-feature`, `add-api-endpoint`,
-`add-component`, `add-page`, `add-route`, `add-icon`. Each one names the exact reference files to
+Alongside `CLAUDE.md`, these rules and Claude Code's auto memory, a mature project is scaffolded by
+the generator skills installed in `~/.claude/skills/`: `tv-add-entity`, `tv-add-feature`,
+`tv-add-api-endpoint`, `tv-add-component`, `tv-add-page`, `tv-add-route`, `tv-add-icon`. Each one names the exact reference files to
 mirror and ends by running the check script.
 
 The detail that makes them work: a skill **inlines the live reference source at invocation time**

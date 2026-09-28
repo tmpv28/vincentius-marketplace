@@ -74,7 +74,8 @@ const POWERSHELL = [
   ["git commit -m @'\nfix(hooks): x\n'@", "allow"],
   ["git commit -m @'\nFixed stuff.\n'@", "deny"],
   ['git commit -m @"\nfix(hooks): $scope\n"@', "allow"],
-  ["git commit -m 'docs(readme): single quotes'", "allow"]
+  ["git commit -m 'docs(readme): single quotes'", "allow"],
+  ["git commit -m \"fix: y`n`nLonger body text that explains why it changed here.\"", "allow"]
 ];
 
 const runCases = (cases, toolName = "Bash") => {

@@ -1,14 +1,14 @@
 // Shared vendoring helpers: read vendor.json, and rebuild an item from its pristine upstream plus
 // its patches. Patches are plain `git diff --no-index a b` output, applied with `git apply -p2`.
 import { readFileSync, writeFileSync, cpSync, mkdtempSync, rmSync, existsSync, lstatSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { toPosix, sha256, walk } from "./files.mjs";
 
-export const ROOT = fileURLToPath(new URL("..", import.meta.url));
+export const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 // VENDOR_DIR points the scripts at a scratch copy; only the tests set it.
 export const VENDOR = process.env.VENDOR_DIR || join(ROOT, "vendor");
 

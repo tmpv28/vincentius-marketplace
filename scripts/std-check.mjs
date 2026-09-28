@@ -43,7 +43,7 @@ for (const problem of checkMap()) failures.push(`rules map: ${problem}`);
 
 // ─── Step 4: tests ──────────────────────────────────────────
 for (const suite of ["tests/unit", "tests/install"]) {
-  if (!existsSync(join(ROOT, suite))) continue;
+  if (!existsSync(join(ROOT, suite))) { failures.push(`tests: ${suite} is missing`); continue; }
   const testFiles = readdirSync(join(ROOT, suite)).filter((f) => f.endsWith(".test.mjs")).map((f) => join(suite, f));
   if (testFiles.length === 0) continue;
   const result = spawnSync(process.execPath, ["--test", ...testFiles], { cwd: ROOT, encoding: "utf8" });
@@ -52,7 +52,7 @@ for (const suite of ["tests/unit", "tests/install"]) {
 }
 
 if (failures.length === 0) {
-  console.log(green("✔  ") + bold("Spotless. Syntax, em-dashes and tests all clear."));
+  console.log(green("✔  ") + bold("Spotless. Syntax, em-dashes, generated maps and tests all clear."));
   process.exit(0);
 }
 console.log(red("✖  ") + bold(`${failures.length} problem${failures.length === 1 ? "" : "s"}. Not done.`));

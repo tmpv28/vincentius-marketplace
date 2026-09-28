@@ -12,12 +12,10 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, copyFileSync, renameSync, chmodSync } from "node:fs";
 import { join, dirname, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 
-import { readVendor, buildItem, verifyItem } from "./scripts/vendor-lib.mjs";
+import { ROOT, readVendor, buildItem, verifyItem } from "./scripts/vendor-lib.mjs";
 import { toPosix, sha256, walk, pruneEmptyDirs, configDir, isRunDirectly } from "./scripts/files.mjs";
 
-const ROOT = dirname(fileURLToPath(import.meta.url));
 const KIT = join(ROOT, "kit");
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
@@ -41,8 +39,13 @@ const log = (icon, text) => console.log(`${icon}  ${text}`);
 const readManifest = () => {
   if (!existsSync(MANIFEST)) return null;
   const manifest = JSON.parse(readFileSync(MANIFEST, "utf8"));
-  // Manifests before 0.2 listed files without hashes; isEditedSince treats a missing hash as edited.
-  if (Array.isArray(manifest.files)) manifest.files = Object.fromEntries(manifest.files.map((rel) => [rel, null]));
+  // Manifests before 0.2 listed files without hashes and never recorded the status line. A file that
+  // still equals what the kit renders today is taken as unedited; any other counts as edited.
+  if (Array.isArray(manifest.files)) {
+    const kitHashes = currentKitHashes();
+    manifest.files = Object.fromEntries(manifest.files.map((rel) => [rel, kitHashes[rel] ?? null]));
+    manifest.statusLine ??= snippet(join(KIT, "settings", "hooks.snippet.json")).statusLine.command;
+  }
   return manifest;
 };
 const writeManifest = (manifest) => {
@@ -106,6 +109,12 @@ const plan = () => {
   return { files, cleanup };
 };
 
+const currentKitHashes = () => {
+  const { files, cleanup } = plan();
+  try { return Object.fromEntries(files.map(([src, rel]) => [rel, sha256(render(src))])); }
+  finally { cleanup(); }
+};
+
 // Agent sources may inline another kit file, so a checklist has one home and the agent still gets all of it.
 const render = (src) => {
   const text = readFileSync(src);
@@ -153,17 +162,25 @@ const withoutHooks = (groups, isDropped) => groups
 export const mergeSettings = (current, addition, { kitStatusLine = null } = {}) => {
   const next = JSON.parse(JSON.stringify(current));
   const kept = [];
+  // Every kit hook goes, in every event, before the snippet's come back: one the kit dropped would run a deleted script.
+  if (addition.hooks && Object.values(addition.hooks).flat().some((group) => group.hooks.some(isKitHook)))
+    for (const event of Object.keys(next.hooks || {})) {
+      next.hooks[event] = withoutHooks(next.hooks[event], isKitHook);
+      if (next.hooks[event].length === 0) delete next.hooks[event];
+    }
   for (const [event, groups] of Object.entries(addition.hooks || {})) {
     next.hooks = next.hooks || {};
-    // Every kit hook goes, not only the ones shipped again: a hook the kit dropped would run a deleted script.
     const incoming = new Set(groups.flatMap((group) => group.hooks.map(hookId)));
-    next.hooks[event] = [...withoutHooks(next.hooks[event] || [], (hook) => isKitHook(hook) || incoming.has(hookId(hook))), ...groups];
+    next.hooks[event] = [...withoutHooks(next.hooks[event] || [], (hook) => incoming.has(hookId(hook))), ...groups];
   }
   for (const list of ["allow", "ask", "deny"]) {
     const wanted = addition.permissions?.[list];
     if (!wanted) continue;
     next.permissions = next.permissions || {};
-    next.permissions[list] = [...new Set([...(next.permissions[list] || []), ...wanted])];
+    // A rule naming this repo's vendor-check replaces one naming an older copy (each plugin version is a new folder).
+    const isVendorCheckRule = (rule) => /\/scripts\/vendor-check\.mjs/.test(rule);
+    const existing = (next.permissions[list] || []).filter((rule) => !isVendorCheckRule(rule) || wanted.includes(rule) || !wanted.some(isVendorCheckRule));
+    next.permissions[list] = [...new Set([...existing, ...wanted])];
   }
   for (const [key, value] of Object.entries(addition)) {
     if (key === "hooks" || key === "permissions") continue;

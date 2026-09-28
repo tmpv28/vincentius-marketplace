@@ -64,6 +64,6 @@ exists. `CLAUDE.md` says where the swap happens.
 
 ## Governing standard
 
-The conventions in this template come from TV-STANDARD, which lives one level up in
-`PersonalProjects/TV-STANDARD/`. Read `AGENTS.md` and `standards/` there in full before changing
-anything here.
+The conventions in this template come from TV-STANDARD, installed as Claude Code rules in
+`~/.claude/rules/tv/` (a core that always loads, plus packs that load by file type). Read the core
+and the packs for the files you touch before changing anything here.

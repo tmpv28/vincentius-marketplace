@@ -19,7 +19,12 @@ const PREFIX_OPTIONS_WITH_VALUE = {
 };
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 
-const commandBaseName = (word) => word.replace(/\\/g, "/").split("/").pop().toLowerCase().replace(/\.exe$/, "");
+// PowerShell's backtick escapes that stand for a control character; any other `x is plain x.
+const POWERSHELL_ESCAPES = { n: "\n", r: "\r", t: "\t", 0: "\0" };
+// Bash's $'...' escapes; the rest of ANSI-C quoting (\x41, é) is left as written.
+const ANSI_C_ESCAPES = { n: "\n", r: "\r", t: "\t", "\\": "\\", "'": "'", '"': '"' };
+
+const commandBaseName =(word) => word.replace(/\\/g, "/").split("/").pop().toLowerCase().replace(/\.exe$/, "");
 
 // ─── Heredocs ───────────────────────────────────────────────
 
@@ -37,6 +42,9 @@ const extractHeredocs = (command) => {
   let cursor = 0;
   HEREDOC_OPERATOR.lastIndex = 0;
   for (let match = HEREDOC_OPERATOR.exec(command); match; match = HEREDOC_OPERATOR.exec(command)) {
+    // Inside $(( ... )), << is a shift: $((1 << n)) opens no heredoc.
+    const before = command.slice(0, match.index);
+    if ((before.match(/\$\(\(/g) ?? []).length > (before.match(/\)\)/g) ?? []).length) continue;
     const operatorEnd = match.index + match[0].length;
     const lineEnd = command.indexOf("\n", operatorEnd);
     if (lineEnd === -1) break;
@@ -117,7 +125,7 @@ const lexCommand = (text, dialect = "posix") => {
         current.value += next;
         cursor += 2;
       } else if (!isPosix && char === "`" && next !== "") {
-        current.value += next;
+        current.value += POWERSHELL_ESCAPES[next] ?? next;
         cursor += 2;
       } else if (char === "$" && next === "(") cursor = readParenthesized(cursor);
       else if (isPosix && char === "`") cursor = readBackticks(cursor);
@@ -126,6 +134,19 @@ const lexCommand = (text, dialect = "posix") => {
         current.value += char;
         cursor++;
       }
+    }
+    return cursor + 1;
+  };
+
+  // Bash's $'...': single-quoted, except that backslash escapes apply.
+  const readAnsiC = (start) => {
+    const current = openWord(start);
+    current.isQuoted = true;
+    let cursor = start + 2;
+    while (cursor < text.length && text[cursor] !== "'") {
+      const escaped = text[cursor] === "\\" ? text[cursor + 1] ?? "" : "";
+      current.value += escaped !== "" ? ANSI_C_ESCAPES[escaped] ?? `\\${escaped}` : text[cursor];
+      cursor += escaped !== "" ? 2 : 1;
     }
     return cursor + 1;
   };
@@ -163,9 +184,10 @@ const lexCommand = (text, dialect = "posix") => {
     else if (isPosix && char === "\\" && next === "\n") index += 2;
     else if ((isPosix ? char === "\\" : char === "`") && next !== "") {
       // Bash drops an unquoted backslash and keeps the next character; PowerShell does that with a backtick.
-      openWord(index).value += next;
+      openWord(index).value += isPosix ? next : POWERSHELL_ESCAPES[next] ?? next;
       index += 2;
-    } else if ("$<>".includes(char) && next === "(") index = readParenthesized(index);
+    } else if (isPosix && char === "$" && next === "'") index = readAnsiC(index);
+    else if ("$<>".includes(char) && next === "(") index = readParenthesized(index);
     else if (isPosix && char === "`") index = readBackticks(index);
     else if (char === "#" && !word) {
       const lineEnd = text.indexOf("\n", index);

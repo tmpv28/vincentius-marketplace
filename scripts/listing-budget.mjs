@@ -76,8 +76,8 @@ for (const { file } of sources) {
 const totalChars = rows.reduce((sum, r) => sum + r.chars, 0);
 const budgetChars = Math.round(contextTokens * fraction * 4);
 const report = { skills: rows.length, totalChars, approxTokens: Math.round(totalChars / 4), fraction, contextTokens, budgetChars,
-  fits: totalChars <= budgetChars };
+  doesFit: totalChars <= budgetChars };
 
 if (args.includes("--json")) console.log(JSON.stringify({ ...report, rows }, null, 2));
-else console.log(`${report.fits ? "✔" : "✖"}  ${report.skills} model-invocable skills, ${totalChars} chars (~${report.approxTokens} tokens) against a budget of ${budgetChars} chars (${fraction * 100}% of ${contextTokens} tokens). /skill-doctor is the authority.`);
-process.exit(report.fits ? 0 : 1);
+else console.log(`${report.doesFit ? "✔" : "✖"}  ${report.skills} model-invocable skills, ${totalChars} chars (~${report.approxTokens} tokens) against a budget of ${budgetChars} chars (${fraction * 100}% of ${contextTokens} tokens). /skill-doctor is the authority.`);
+process.exit(report.doesFit ? 0 : 1);

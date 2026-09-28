@@ -80,6 +80,10 @@ const renderCore = (map) => {
 export const checkMap = () => {
   const map = renderMap();
   const problems = [];
+  // A section without a chapter label would drop out of the map silently.
+  for (const pack of packsOnDisk().filter((name) => name !== "core"))
+    for (const [heading] of readPack(pack).matchAll(/^## .*$/gm))
+      if (!/ \((TV \d\d|identity: [a-z-]+|AGENTS|README)\)$/.test(heading)) problems.push(`${pack}.md: "${heading}" has no chapter label`);
   if (readFileSync(DOC, "utf8").replace(/\r\n/g, "\n") !== renderDoc(map)) problems.push("docs/rules.md is out of date; run node scripts/rules-map.mjs");
   if (readPack("core") !== renderCore(map)) problems.push("the map at the end of core.md is out of date; run node scripts/rules-map.mjs");
   return problems;

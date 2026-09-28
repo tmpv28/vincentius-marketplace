@@ -38,15 +38,15 @@ const RISKY_TEXT = [
 // Versions compare numerically, never by publish date: an older line can ship after a newer one.
 const parseVersion = (text) => (String(text).match(/(\d+)\.(\d+)\.(\d+)/) || []).slice(1).map(Number);
 const compareVersions = (a, b) => {
-  const [x, y] = [parseVersion(a), parseVersion(b)];
-  for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0);
+  const [left, right] = [parseVersion(a), parseVersion(b)];
+  for (let part = 0; part < 3; part++) if ((left[part] ?? 0) !== (right[part] ?? 0)) return (left[part] ?? 0) - (right[part] ?? 0);
   return 0;
 };
 // GitHub advisory ranges look like ">= 0.24.0, <= 1.0.1" or "< 2.3.0".
-const inRange = (version, range) => (range || "").split(",").map((part) => part.trim()).filter(Boolean).every((part) => {
+const isInRange = (version, range) => (range || "").split(",").map((part) => part.trim()).filter(Boolean).every((part) => {
   const [, op, bound] = part.match(/^(>=|<=|>|<|=)?\s*(.+)$/) || [];
-  const c = compareVersions(version, bound);
-  return { ">=": c >= 0, "<=": c <= 0, ">": c > 0, "<": c < 0, "=": c === 0, undefined: c === 0 }[op];
+  const order = compareVersions(version, bound);
+  return { ">=": order >= 0, "<=": order <= 0, ">": order > 0, "<": order < 0, "=": order === 0, undefined: order === 0 }[op];
 });
 
 const ageDays = (date) => (now - new Date(date)) / DAY;
@@ -164,7 +164,7 @@ const checkNpm = async (name, entry) => {
   const advisories = fixture ? fixture[`advisories:${entry.package}`] || [] : ghApi(`/advisories?ecosystem=npm&affects=${entry.package}`);
   // Only advisories that reach the pinned version are news; fixed ones stay out of the report.
   const flags = advisories
-    .filter((a) => (a.vulnerabilities || []).some((v) => inRange(entry.pinned.version, v.vulnerable_version_range)))
+    .filter((a) => (a.vulnerabilities || []).some((v) => isInRange(entry.pinned.version, v.vulnerable_version_range)))
     .map((a) => `advisory ${a.ghsa_id} (${a.severity}) affects the pinned ${entry.pinned.version}`);
   if (eligible.length === 0) return { name, kind: "npm", status: newer.length ? "waiting" : "up-to-date", tooNew: newer.length, flags };
   return { name, kind: "npm", status: "update-available", candidate: eligible[0][0], candidateDate: eligible[0][1],
@@ -209,7 +209,7 @@ const bumpBinary = (name, entry, item, vendor) => {
   return 0;
 };
 
-// ─── Bump one skill ─────────────────────────────────────────
+// ─── Bump ───────────────────────────────────────────────────
 const bump = (name, vendor, report, shouldAcceptFlags) => {
   const entry = vendor[name];
   const item = report.find((r) => r.name === name);

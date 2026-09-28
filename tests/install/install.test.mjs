@@ -280,6 +280,37 @@ describe("install.mjs", () => {
       assert.equal(commandsOf(settingsOf(other).hooks.Stop).some((c) => c.includes("retired-hook")), false);
     });
 
+    it("drops a kit hook in an event the kit no longer uses", () => {
+      const other = fresh();
+      install(other, "--apply-settings");
+      const settings = settingsOf(other);
+      settings.hooks.SessionStart = [{ hooks: [{ type: "command", command: "node", args: [`${other}/hooks/tv/old-start.js`] }] }];
+      writeFileSync(join(other, "settings.json"), JSON.stringify(settings));
+      install(other, "--apply-settings");
+      assert.equal(settingsOf(other).hooks.SessionStart, undefined);
+    });
+
+    it("keeps one vendor-check allow rule when the source folder changes", () => {
+      const other = fresh();
+      writeFileSync(join(other, "settings.json"), JSON.stringify({ permissions: { allow: ["Bash(node C:/old/cache/1/scripts/vendor-check.mjs*)", "Bash(ls *)"] } }));
+      install(other, "--apply-settings", "--personal");
+      const allow = settingsOf(other).permissions.allow;
+      assert.equal(allow.filter((rule) => rule.includes("vendor-check.mjs")).length, 1);
+      assert.ok(allow.includes("Bash(ls *)"));
+    });
+
+    it("uninstalls from an old manifest without hashes: status line removed, unedited files not backed up", () => {
+      const other = fresh();
+      install(other, "--apply-settings");
+      const manifest = manifestOf(other);
+      manifest.files = Object.keys(manifest.files);
+      delete manifest.statusLine;
+      writeFileSync(join(other, "vincentius-marketplace.installed.json"), JSON.stringify(manifest));
+      assert.equal(install(other, "--uninstall").status, 0);
+      assert.equal(settingsOf(other).statusLine, undefined);
+      assert.equal(walk(other).some((file) => /\.bak-/.test(file) && !/settings\.json/.test(file)), false);
+    });
+
     it("keeps your status line and says so", () => {
       const other = fresh();
       writeFileSync(join(other, "settings.json"), JSON.stringify({ statusLine: { type: "command", command: "my-line" } }));
