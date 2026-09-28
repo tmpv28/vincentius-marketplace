@@ -15,6 +15,8 @@ export interface ButtonComponentType {
   customIcon?: ReactNode;
   badge?: string | number;
   tooltipTitle?: string;
+  // The accessible name when the button shows only an icon; a tooltip is not one.
+  ariaLabel?: string;
 
   size?: ButtonComponentSizes;
   styleType?: ButtonComponentStyleTypes;

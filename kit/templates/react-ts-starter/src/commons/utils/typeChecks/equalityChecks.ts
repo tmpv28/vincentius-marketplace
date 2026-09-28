@@ -4,7 +4,9 @@ import { isArray, isObject, isPlainObject } from "./isSpecificType";
 // Two distinct object graphs that both contain cycles would recurse forever, and a re-fetch
 // comparison is exactly the case where the two graphs are distinct. Every pair already being
 // compared is remembered, and meeting it again counts as equal: if the rest of the walk finds a
-// real difference it still reports one.
+// real difference it still reports one. A pair is forgotten as soon as its own comparison ends,
+// equal or not: the assumption is only sound while that comparison is open, and a pair kept
+// afterwards turns a failed try in the order-agnostic array search into a later false match.
 type SeenPairsType = WeakMap<object, WeakSet<object>>;
 
 // One walk serves both comparisons, so the cycle guard and the non-plain-object rule cannot drift
@@ -21,6 +23,10 @@ const rememberPair = (seenPairs: SeenPairsType, valueA: object, valueB: object) 
   const partners = seenPairs.get(valueA) ?? new WeakSet<object>();
   partners.add(valueB);
   seenPairs.set(valueA, partners);
+};
+
+const forgetPair = (seenPairs: SeenPairsType, valueA: object, valueB: object) => {
+  seenPairs.get(valueA)?.delete(valueB);
 };
 
 // Dates and ISO strings are normalized to the second. A payload that only differs in
@@ -57,47 +63,53 @@ function areEqualWithSeenPairs(valueA: any, valueB: any, equalityWalk: EqualityW
   if (!isObject(normalizedB) && !isArray(normalizedB)) return false;
 
   if (hasSeenPair(seenPairs, normalizedA, normalizedB)) return true;
+
   rememberPair(seenPairs, normalizedA, normalizedB);
 
-  // 4. Arrays compare order-agnostically, as a multiset, and each pairing recurses through this
-  // same function. Serializing the entries instead would skip date normalization and would call
-  // two different Sets or Errors equal. When order is significant, position for position.
-  if (isArray(normalizedA) && isArray(normalizedB)) {
-    if (normalizedA.length !== normalizedB.length) return false;
+  // finally, so the pair is forgotten on every exit path of steps 4 to 6 at once.
+  try {
+    // 4. Arrays compare order-agnostically, as a multiset, and each pairing recurses through this
+    // same function. Serializing the entries instead would skip date normalization and would call
+    // two different Sets or Errors equal. When order is significant, position for position.
+    if (isArray(normalizedA) && isArray(normalizedB)) {
+      if (normalizedA.length !== normalizedB.length) return false;
 
-    if (isOrderSignificant)
-      return normalizedA.every((entryA, index) =>
-        areEqualWithSeenPairs(entryA, normalizedB[index], equalityWalk)
+      if (isOrderSignificant)
+        return normalizedA.every((entryA, index) =>
+          areEqualWithSeenPairs(entryA, normalizedB[index], equalityWalk)
+        );
+
+      const unmatchedEntries = [...normalizedB];
+      return normalizedA.every((entryA) => {
+        const matchIndex = unmatchedEntries.findIndex((entryB) =>
+          areEqualWithSeenPairs(entryA, entryB, equalityWalk)
+        );
+        if (matchIndex === -1) return false;
+        unmatchedEntries.splice(matchIndex, 1);
+        return true;
+      });
+    }
+
+    // 5. Anything that is not a plain object carries state Object.keys cannot see, so it is only
+    // equal to itself, which step 1 already settled.
+    if (!isPlainObject(normalizedA) || !isPlainObject(normalizedB)) return false;
+
+    // 6. Plain objects compare key by key, recursively.
+    if (isObject(normalizedA) && isObject(normalizedB)) {
+      const objectA: Record<string, any> = normalizedA;
+      const objectB: Record<string, any> = normalizedB;
+
+      const keysA = Object.keys(objectA);
+      const keysB = Object.keys(objectB);
+      if (keysA.length !== keysB.length) return false;
+
+      return keysA.every(
+        (key) =>
+          keysB.includes(key) && areEqualWithSeenPairs(objectA[key], objectB[key], equalityWalk)
       );
-
-    const unmatchedEntries = [...normalizedB];
-    return normalizedA.every((entryA) => {
-      const matchIndex = unmatchedEntries.findIndex((entryB) =>
-        areEqualWithSeenPairs(entryA, entryB, equalityWalk)
-      );
-      if (matchIndex === -1) return false;
-      unmatchedEntries.splice(matchIndex, 1);
-      return true;
-    });
-  }
-
-  // 5. Anything that is not a plain object carries state Object.keys cannot see, so it is only
-  // equal to itself, which step 1 already settled.
-  if (!isPlainObject(normalizedA) || !isPlainObject(normalizedB)) return false;
-
-  // 6. Plain objects compare key by key, recursively.
-  if (isObject(normalizedA) && isObject(normalizedB)) {
-    const objectA: Record<string, any> = normalizedA;
-    const objectB: Record<string, any> = normalizedB;
-
-    const keysA = Object.keys(objectA);
-    const keysB = Object.keys(objectB);
-    if (keysA.length !== keysB.length) return false;
-
-    return keysA.every(
-      (key) =>
-        keysB.includes(key) && areEqualWithSeenPairs(objectA[key], objectB[key], equalityWalk)
-    );
+    }
+  } finally {
+    forgetPair(seenPairs, normalizedA, normalizedB);
   }
 
   return false;

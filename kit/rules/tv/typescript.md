@@ -359,8 +359,9 @@ Props that receive a handler are named `on<Event>`: `onClick`, `onClickAction`, 
 
 ## Hooks (TV 02)
 
-- `use<Operation><Entity>` for endpoint hooks: `useAddNote`, `useReadNote`; a list fetch is
-  `use<Entity>LazyFetch`: `useNotesLazyFetch`
+- `use<Operation><Entity>` for endpoint hooks: `useAddNote`, `useReadNotes`; a lazily
+  fetched (paged) list is `use<Entity>LazyFetch`: `useNotesLazyFetch`. A list read in one call is a
+  plain read through the read controller, like `useReadNotes`.
 - `use<Thing>Controller` for the API controllers: `useCreateController`
 - `use<Thing>Validations` for validation hooks: `useAddNoteValidations`
 - `use<Thing>Context` for context accessors: `useToastActionsContext`

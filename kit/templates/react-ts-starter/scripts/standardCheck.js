@@ -6,8 +6,13 @@ import { printBanner, ACCENT } from "./branding.js";
 
 // ─── Constants ─────────────────────────────────────────────
 
-// scripts/ is linted too, so the gate's own code is held to the rules it enforces.
-const ESLINT_TARGETS = '"src/**/*.{js,jsx,ts,tsx}" "scripts/**/*.js"';
+// scripts/ and the tool configs are linted too, so the code that builds and checks the app is held
+// to the rules it enforces.
+const ESLINT_TARGETS =
+  '"src/**/*.{js,jsx,ts,tsx}" "scripts/**/*.js" vite.config.ts vitest.setup.ts ".storybook/**/*.ts"';
+// The app and the tool configs compile under different settings (the configs sit outside src/,
+// which the app config roots at), so each project is checked on its own.
+const TSC_PROJECTS = ["tsconfig.json", "tsconfig.node.json"];
 // One definition of "a line ESLint emitted for a finding", used by every pass over its output.
 const ISSUE_LINE_PATTERN = /^\s*\d+:\d+\s+(error|warning)\s+/;
 const ERROR_LINE_PATTERN = /^\s*\d+:\d+\s+error\s+/;
@@ -397,8 +402,14 @@ const seenErrorLocations = extractErrorLocations(`${prettierOutput}\n${eslintFix
 console.log("\n");
 printStepHeader("Type checking...");
 
-const tscResult = runCommand("pnpm exec tsc --noEmit --skipLibCheck 2>&1");
-const tscRawOutput = getFullOutput(tscResult);
+const tscResults = TSC_PROJECTS.map((project) =>
+  runCommand(`pnpm exec tsc --noEmit --skipLibCheck -p ${project} 2>&1`)
+);
+const tscResult = { success: tscResults.every((result) => result.success) };
+const tscRawOutput = tscResults
+  .map((result) => getFullOutput(result))
+  .filter((output) => output.length > 0)
+  .join("\n");
 const tscOutput = filterTscOutput(tscRawOutput, seenErrorLocations);
 
 // A non-zero tsc exit always means broken types (or a crashed compiler); never let empty

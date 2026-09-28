@@ -17,6 +17,7 @@ const ButtonComponent: React.FC<ButtonComponentType> = ({
   customIcon = null,
   badge = "",
   tooltipTitle = "",
+  ariaLabel = "",
   size = buttonSizes.normal,
   styleType = buttonStyleTypes.normal,
   paddingSize,
@@ -53,6 +54,7 @@ const ButtonComponent: React.FC<ButtonComponentType> = ({
           type="button"
           className={classNames.rootContainer}
           style={styleConfigs}
+          aria-label={isNullOrEmpty(ariaLabel) ? undefined : ariaLabel}
           disabled={isButtonBlocked && !hasBlockingReason}
           aria-disabled={isButtonBlocked}
           aria-describedby={hasBlockingReason ? tooltipBubbleId : undefined}

@@ -54,6 +54,24 @@ describe("areEqual", () => {
   it("terminates when the cycle is reached through an array", () => {
     expect(areEqual([makeCyclicNode("a")], [makeCyclicNode("a")])).toBe(true);
   });
+
+  it("does not reuse a failed pairing as a match (one shared entry against two different ones)", () => {
+    const sharedEntry = { id: "1" };
+    expect(areEqual([sharedEntry, sharedEntry], [{ id: "2" }, { id: "1" }])).toBe(false);
+  });
+
+  it("returns false for rows sharing one author against rows with different authors", () => {
+    const sharedAuthor = { name: "Ada" };
+    const rowsSharingAuthor = [
+      { author: sharedAuthor, title: "a" },
+      { author: sharedAuthor, title: "b" }
+    ];
+    const rowsWithDifferentAuthors = [
+      { author: { name: "Grace" }, title: "b" },
+      { author: { name: "Ada" }, title: "a" }
+    ];
+    expect(areEqual(rowsSharingAuthor, rowsWithDifferentAuthors)).toBe(false);
+  });
 });
 
 describe("areNotEqual", () => {

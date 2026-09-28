@@ -174,5 +174,12 @@ Recorded as they happen, in the shape: what was wrong, what was checked, what is
   1662 tests. Rules and template not clean: areEqualInOrder called two different Sets equal and
   overflowed on cycles (now the cycle-safe walk, tests fail on the old code); breakpoint variables
   renamed to $snake_case.
+- Pass 10: neither clean. Hooks: paths after "( " or ", " missed; nested $() and bash -c ignored a
+  preceding cd; .env.local.example (Next.js) treated as a secret. Fixed, plus chmod/icacls touch-only,
+  property-only script blocks as listings, isTrackedIn memoized; corpus 1971 tests. Accepted: checking
+  stops at four levels of nested $(). Template: areEqual remembered failed pairs, so [x, x] matched a
+  list holding a different item; pairs are now remembered only during their own comparison. Configs
+  (vite, vitest setup, storybook) type-checked and linted by the gate; Button gains ariaLabel. Rules:
+  lazy-fetch naming is for paged lists; a one-call list read is a plain read.
 - Phase 7 item: pnpm warns of an unmet peer from eslint-plugin-unused-imports@4.4.1 (it pulls
   @typescript-eslint/eslint-plugin@7, which wants ESLint 8); not caused by the removals.

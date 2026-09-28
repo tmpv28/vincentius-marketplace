@@ -42,7 +42,8 @@ const SEED_COMMANDS = new Set(["cp", "copy", "copy-item", "cpi"]);
 const PUSH_DIRECTORY_COMMANDS = new Set(["pushd", "push-location"]);
 const POP_DIRECTORY_COMMANDS = new Set(["popd", "pop-location"]);
 const CHANGE_DIRECTORY_COMMANDS = new Set(["cd", "set-location", "sl", "chdir", ...PUSH_DIRECTORY_COMMANDS]);
-const SEED_SOURCE_NAME = new RegExp(`^\\.env(\\.(${[...SCHEMA_SUFFIXES].join("|")}))?$`, "i");
+// The bare .env, or any name ending in a schema suffix (.env.example, Next.js's .env.local.example).
+const SEED_SOURCE_NAME = new RegExp(`^\\.env((\\.[^.]+)*\\.(${[...SCHEMA_SUFFIXES].join("|")}))?$`, "i");
 
 // Resolved against the folder the command runs in, so ./x, x and an absolute path to x agree.
 const folderAndName = (value, cwd) => {
@@ -60,8 +61,14 @@ const isSeedPair = (source, destination, cwd) => {
   return destinationName === ".env.local" || (destinationName === ".env" && sourceName !== ".env");
 };
 
-const isTrackedIn = (dir, fileName) =>
-  spawnSync("git", ["-C", dir, "ls-files", "--error-unmatch", "--", fileName], { encoding: "utf8", timeout: 5000 }).status === 0;
+// Memoized per run: a chain of 300 `cat .env` asks git once, not 300 times.
+const trackedCache = new Map();
+const isTrackedIn = (dir, fileName) => {
+  const key = `${dir}\n${fileName}`;
+  if (!trackedCache.has(key))
+    trackedCache.set(key, spawnSync("git", ["-C", dir, "ls-files", "--error-unmatch", "--", fileName], { encoding: "utf8", timeout: 5000 }).status === 0);
+  return trackedCache.get(key);
+};
 
 // Git Bash spells C:\x as /c/x, which path.resolve on Windows would read as C:\c\x.
 const toNativePath = (value) => (process.platform === "win32" ? value.replace(/^\/([a-z])(?=\/|$)/i, "$1:") : value);
@@ -74,7 +81,7 @@ const pathFragments = (value, isWhitespaceSplit) =>
     .replace(/\\/g, "/")
     .split(isWhitespaceSplit ? /[,{}=<>()\s]/ : /[,{}=<>()]/)
     .flatMap((part) => part.split(/(?<!^[A-Za-z]):/))
-    .map((part) => part.replace(/["']/g, "").replace(/[.\s]+$/, ""))
+    .map((part) => part.replace(/["']/g, "").replace(/^\s+/, "").replace(/[.\s]+$/, ""))
     .filter((part) => part !== "");
 
 // Split on = : , too, so --include=.env* and -Filter:.env* are seen as the glob they carry.
@@ -98,7 +105,9 @@ const findSecretIn = (value, baseDir, isEnvRuleSkipped = false, isWhitespaceSpli
       continue;
     }
     const envMatch = ENV_FILE.exec(baseName);
-    if (!envMatch || SCHEMA_SUFFIXES.has(envMatch[1]) || isEnvSourceCode(baseName)) continue;
+    // A schema suffix first (.env.example.local) or last (.env.local.example, the Next.js convention).
+    const isSchema = envMatch !== null && (SCHEMA_SUFFIXES.has(envMatch[1]) || SCHEMA_SUFFIXES.has(baseName.split(".").pop()));
+    if (!envMatch || isSchema || isEnvSourceCode(baseName)) continue;
     if (envMatch[1]) return baseName;
     if (GLOB.test(folder)) return ".env (under a glob)";
     if (!isTrackedIn(folderPath(), ".env")) return ".env (untracked)";
@@ -164,6 +173,7 @@ const CREATE_COMMANDS = new Set([
   "stat", "shasum", "sha1sum", "sha256sum", "md5sum", "get-filehash",
   "mv", "move-item", "mi", "move",
   "code", "cursor", "notepad",
+  "chmod", "chown", "icacls", "attrib",
   "ssh-keygen"
 ]);
 // Cmdlets that shape a listing's objects without opening the files behind them.
@@ -468,15 +478,21 @@ const isSeedPipe = (name, args, sourceCommand, cwd) => {
   return positional.length === 0 && isSeedPair(printedSeedSource(source.name, source.args), destination, cwd);
 };
 
-// ForEach-Object Name (or % Name) projects a property; only bare property names, never a script block.
+// ForEach-Object Name (or % Name) projects a property, and so does a script block that only reads
+// properties of $_ (% { $_.FullName }). A block that does anything else may open the file.
 const FOREACH_COMMANDS = new Set(["foreach-object", "%", "foreach"]);
-const isPropertyProjection = (consumerName, consumer) => {
+const PROPERTY_READ = /^\$_(\.[A-Za-z_]\w*)+$/;
+const isPropertyProjection = (consumerName, consumer, scriptBlockOf) => {
+  if (!FOREACH_COMMANDS.has(consumerName)) return false;
   const args = stripCommandPrefix(consumer.words.map((word) => word.value)).args;
-  return FOREACH_COMMANDS.has(consumerName) && args.length > 0 && args.every((word) => /^[A-Za-z_][\w.]*$/.test(word));
+  if (args.length > 0) return args.every((word) => /^[A-Za-z_][\w.]*$/.test(word));
+  const block = scriptBlockOf(consumer);
+  return block !== null && block.words.length > 0 && block.words.every((word) => PROPERTY_READ.test(word.value));
 };
 
 // downstream is every command this one pipes into, in order: [] when nothing reads its output.
-const findSecretInCommand = (command, masked, cwd, dialect, downstream) => {
+// scriptBlockOf(consumer) is the { } block a consumer runs, when that block is one command, else null.
+const findSecretInCommand = (command, masked, cwd, dialect, downstream, scriptBlockOf) => {
   const values = command.words.map((word) => word.value);
   // $msg = @'...'@ in PowerShell stores prose; the command that later uses $msg is checked on its own.
   // A bare name ($f = '.env.local') is still checked, because it is about to be used as a path.
@@ -499,7 +515,7 @@ const findSecretInCommand = (command, masked, cwd, dialect, downstream) => {
   // Get-Item .env.local | Select-Object Length and gci .env* | % Name are still listings; | Get-Content is a read.
   const isListingOnly =
     LISTING_COMMANDS.has(name) && !isWrapped &&
-    downstream.every((consumer, position) => LISTING_CONSUMERS.has(downstreamNames[position]) || isPropertyProjection(downstreamNames[position], consumer));
+    downstream.every((consumer, position) => LISTING_CONSUMERS.has(downstreamNames[position]) || isPropertyProjection(downstreamNames[position], consumer, scriptBlockOf));
   const isTouchOnly = isListingOnly || EXISTENCE_CHECKS.has(name) || CREATE_COMMANDS.has(name) || DELETE_COMMANDS.has(name);
   const isNonReading = NON_READING_COMMANDS.has(name) || isLiteralOutput || (git !== null && NON_READING_GIT.has(git.subcommand));
   const unreadIndexes = unreadWordIndexes(values, name, args, commandIndex, git);
@@ -552,6 +568,13 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
     const grouped = commands[commands.indexOf(feeder) - 1];
     return grouped?.openedBy === "(" ? grouped : null;
   };
+  // A block is the command right after an opening { whose next command closes it: { $_.FullName }.
+  const scriptBlockOf = (command) => {
+    const position = commands.indexOf(command);
+    const block = commands[position + 1];
+    const after = commands[position + 2];
+    return block?.openedBy === "{" && (after === undefined || after.openedBy === "}") ? block : null;
+  };
   const downstreamOf = (command) => {
     const chain = [];
     for (let consumer = pipeConsumers.get(command); consumer; consumer = pipeConsumers.get(consumer)) chain.push(consumer);
@@ -582,7 +605,8 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
       .flatMap((word) => word.substitutions.map((inner) => ({ text: inner, dialect })))
       .concat(wrappedPayload(name, args) ?? []);
     for (const payload of nested) {
-      const violation = findViolation(payload.text, payload.dialect, cwd, depth + 1);
+      // $(...) and bash -c run in the folder the chain has reached, not the session's.
+      const violation = findViolation(payload.text, payload.dialect, commandCwd, depth + 1);
       if (violation) return violation;
     }
     // Only PowerShell's Remove-Item reads its targets from the pipe; bash's rm ignores stdin.
@@ -593,7 +617,7 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
     const isSeed =
       isSeedCopy(name, args, commandCwd) || isSeedRedirect(name, args, command.redirects, commandCwd) ||
       isSeedPipe(name, args, pipeSourceOf(command), commandCwd);
-    const secret = isSeed ? null : findSecretInCommand(command, masked, commandCwd, dialect, downstreamOf(command));
+    const secret = isSeed ? null : findSecretInCommand(command, masked, commandCwd, dialect, downstreamOf(command), scriptBlockOf);
     if (secret) return `secret file ${secret}`;
   }
 

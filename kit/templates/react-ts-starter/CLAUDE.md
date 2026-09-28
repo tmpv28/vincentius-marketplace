@@ -139,6 +139,7 @@ real page with no backend configured. Nothing fakes a request. When a server exi
 2. Replace the seeded `useState` in `ManageNotesFeature` with `useReadNotes` from
    `api/queries/notes/read/endpointCalls`.
 3. Replace the local append in `AddNoteFeature.addNoteHandler` with `useAddNote` from
-   `api/queries/notes/create/endpointCalls`.
+   `api/queries/notes/create/endpointCalls`, and remove that handler's `createSuccessfulToast`
+   call: `useAddNote` already toasts on success, so keeping it shows two toasts.
 
 Then delete `demoNotesDefinition.ts`.
