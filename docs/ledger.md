@@ -151,3 +151,9 @@ Recorded as they happen, in the shape: what was wrong, what was checked, what is
   Installer: --apply-settings refuses while a kit hook script is someone else's file.
 - From pass 6 on, the hooks bar is realistic everyday use by Claude; contrived evasions are optional,
   consistent with the accident-guard threat model.
+- Pass 6: hooks and rules not clean. Hooks: shell keywords (if/then/do/{ }) hid the real command;
+  --env-file and dotenv -e allowed for any command; redirect seeding, existence checks and deletes of the
+  local env file allowed; .env.ts treated as code. The reviewer's 306 realistic commands are now part of
+  the corpus. Template: themed colours go through eight role aliases (text on accent fixed dark, 8.96:1);
+  delete moved into its own DeleteNote feature; actionsCell classNames key; rules-of-hooks on. Rules:
+  a generic component is the plain typed arrow; route guards and inline endpoint guards explained.

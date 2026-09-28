@@ -17,7 +17,8 @@ else from the template at `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/templates/react-t
 
 - Add the URL to `baseRouteUrlsDefinition.ts`, keeping its existing grouping and naming.
 - Add the entry to `routesConfigsDefinition.tsx`, pointing at the page. Guards (auth, permissions) go on the
-  route, never in the page.
+  route, never in the page. The template's `RouteConfigType` has no guard field yet: the first route that
+  needs one adds it to the type and to the router, and says so.
 - If a new context provider is needed, it goes into the one explicit nesting in `router.tsx`, above every
   provider its defaults depend on, and the provider order in `CLAUDE.md` changes in the same commit.
 

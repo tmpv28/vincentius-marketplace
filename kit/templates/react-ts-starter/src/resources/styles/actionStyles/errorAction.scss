@@ -10,6 +10,6 @@
   // opts out here instead of the container opting every child in one by one.
   .ignoreErrorActionColors,
   .errorAction .ignoreErrorActionColors {
-    color: $color_white !important;
+    color: $color_text_primary !important;
   }
 }

@@ -34,6 +34,25 @@ any component can take a color by name instead of hardcoding a hex.
   --color-white: 12, 14, 18;
 }
 
+// Semantic roles for every colour that flips between themes; components consume these, never the
+// literal names, which stop describing what they paint under the light theme. Also declared on the
+// theme attribute so the var() is re-resolved wherever the theme is applied, not only at :root.
+:root,
+[data-appTheme] {
+  --color-text-primary: var(--color-white);
+  --color-text-secondary: var(--color-light-gray);
+
+  // A fixed triplet, not an alias: the accent does not flip, so neither may its text. Dark text
+  // reads 8.96:1 on the accent (5.18:1 on its hover); no light text passes 4.5:1 on it.
+  --color-text-on-accent: 12, 14, 18;
+
+  --color-surface-base: var(--color-black);
+  --color-surface: var(--color-light-black);
+  --color-surface-raised: var(--color-dark-gray);
+  --color-border: var(--color-dark-gray);
+  --color-shadow: var(--color-black);
+}
+
 @layer utilities {
   .color_white {
     color: rgb(var(--color-white)) !important;
@@ -68,5 +87,55 @@ any component can take a color by name instead of hardcoding a hex.
   }
   .background_color_accent {
     background-color: rgb(var(--color-accent)) !important;
+  }
+
+  .color_text_primary {
+    color: rgb(var(--color-text-primary)) !important;
+  }
+  .color_text_secondary {
+    color: rgb(var(--color-text-secondary)) !important;
+  }
+  .color_text_on_accent {
+    color: rgb(var(--color-text-on-accent)) !important;
+  }
+  .color_surface_base {
+    color: rgb(var(--color-surface-base)) !important;
+  }
+  .color_surface {
+    color: rgb(var(--color-surface)) !important;
+  }
+  .color_surface_raised {
+    color: rgb(var(--color-surface-raised)) !important;
+  }
+  .color_border {
+    color: rgb(var(--color-border)) !important;
+  }
+  .color_shadow {
+    color: rgb(var(--color-shadow)) !important;
+  }
+
+  .background_color_text_primary {
+    background-color: rgb(var(--color-text-primary)) !important;
+  }
+  .background_color_text_secondary {
+    background-color: rgb(var(--color-text-secondary)) !important;
+  }
+  .background_color_text_on_accent {
+    background-color: rgb(var(--color-text-on-accent)) !important;
+  }
+  .background_color_surface_base {
+    background-color: rgb(var(--color-surface-base)) !important;
+  }
+  .background_color_surface {
+    background-color: rgb(var(--color-surface)) !important;
+  }
+  .background_color_surface_raised {
+    background-color: rgb(var(--color-surface-raised)) !important;
+  }
+  .background_color_border {
+    background-color: rgb(var(--color-border)) !important;
+  }
+  .background_color_shadow {
+    background-color: rgb(var(--color-shadow)) !important;
   }
 }

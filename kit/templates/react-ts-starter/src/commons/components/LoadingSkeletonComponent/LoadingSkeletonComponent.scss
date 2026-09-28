@@ -13,9 +13,9 @@
 
     background: linear-gradient(
       90deg,
-      themeRgba(--color-dark-gray, 0.5) 25%,
+      themeRgba(--color-surface-raised, 0.5) 25%,
       themeRgba(--color-gray, 0.35) 50%,
-      themeRgba(--color-dark-gray, 0.5) 75%
+      themeRgba(--color-surface-raised, 0.5) 75%
     );
     background-size: 200% 100%;
     border-radius: 6px;

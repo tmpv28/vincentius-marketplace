@@ -13,6 +13,8 @@ const REDIRECT_OPERATORS = new Set([">", ">>", "<", "<<", "<<<", "&>", "&>>", ">
 
 // Wrappers that run the command after them rather than being the command.
 const PREFIX_COMMANDS = new Set(["sudo", "env", "command", "exec", "nohup", "time", "builtin", "nice"]);
+// Shell keywords that open a clause: the command is the word after them (if [ -d x ]; then rm -rf ~).
+const CLAUSE_KEYWORDS = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "{"]);
 const PREFIX_OPTIONS_WITH_VALUE = {
   sudo: new Set(["-u", "-g", "-h", "-p", "-C", "-D", "-r", "-t", "-U", "-T", "-R"]),
   env: new Set(["-u", "-C", "-S"]),
@@ -190,7 +192,12 @@ const lexCommand = (text, dialect = "posix") => {
     } else if (isPosix && char === "$" && next === "'") index = readAnsiC(index);
     else if ("$<>".includes(char) && next === "(") index = readParenthesized(index);
     else if (isPosix && char === "`") index = readBackticks(index);
-    else if (char === "#" && !word) {
+    else if (!isPosix && !word && (char === "{" || char === "}") && (next === "" || /[\s;]/.test(next))) {
+      // A PowerShell script block's braces, standing alone, separate the statements inside from the
+      // if (...) or ForEach-Object before them; @{...} and ${env:x} are attached, so they stay words.
+      tokens.push({ type: "op", value: char });
+      index++;
+    } else if (char === "#" && !word) {
       const lineEnd = text.indexOf("\n", index);
       index = lineEnd === -1 ? text.length : lineEnd;
     } else if (char === " " || char === "\t" || char === "\r") {
@@ -244,11 +251,12 @@ const splitCommands = (tokens) => {
   return commands;
 };
 
-// Skips assignments and wrappers (VAR=x, sudo -u root, env, command, nohup) to the real command.
+// Skips assignments, clause keywords (if, then, do, !) and wrappers (VAR=x, sudo -u root, env,
+// command, nohup) to the real command.
 const stripCommandPrefix = (words) => {
   let index = 0;
   while (index < words.length) {
-    if (ASSIGNMENT.test(words[index])) {
+    if (ASSIGNMENT.test(words[index]) || CLAUSE_KEYWORDS.has(words[index])) {
       index++;
       continue;
     }

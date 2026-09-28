@@ -14,11 +14,11 @@
   }
 
   &__heading {
-    color: $color_white;
+    color: $color_text_primary;
   }
 
   &__cellText {
-    color: $color_light_gray;
+    color: $color_text_secondary;
 
     font-size: 14px;
     line-height: 20px;
@@ -28,7 +28,7 @@
   //-----------
 
   &__cellText--title {
-    color: $color_white;
+    color: $color_text_primary;
 
     font-family: $font_family_base;
     font-weight: $font_weight_bold;

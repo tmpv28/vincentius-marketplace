@@ -1,14 +1,8 @@
 import React, { useCallback, useState } from "react";
 
 import DataViewerComponent from "../../../commons/components/DataViewerComponent/DataViewerComponent";
-import ButtonComponent from "../../../commons/components/ButtonComponent/ButtonComponent";
+import DeleteNoteFeature from "../DeleteNote/DeleteNoteFeature";
 import AddNoteFeature from "../AddNote/AddNoteFeature";
-
-import {
-  BUTTON_COMPONENT_SIZES as buttonSizes,
-  BUTTON_COMPONENT_STYLE_TYPES as buttonStyleTypes
-} from "../../../commons/components/ButtonComponent/modules/constants";
-import { useToastActionsContext } from "../../../commons/contexts/Toast/modules/ToastContext.context";
 
 import { API_NoteType } from "../../../api/queries/notes/entityTypes";
 
@@ -26,7 +20,6 @@ const ManageNotesFeature: React.FC<ManageNotesFeatureType> = ({
   // Demo state. The API layer under api/queries/notes is the scaffold to switch to once a
   // backend exists; nothing here fakes a request.
   const [notes, setNotes] = useState<API_NoteType[]>(demoNotesSeed);
-  const { createSuccessfulToast } = useToastActionsContext();
 
   //-----------
 
@@ -34,13 +27,9 @@ const ManageNotesFeature: React.FC<ManageNotesFeatureType> = ({
     setNotes((prevNotes) => [addedNote, ...prevNotes]);
   }, []);
 
-  const deleteNoteHandler = useCallback(
-    (noteInstance: API_NoteType) => {
-      setNotes((prevNotes) => prevNotes.filter((prevNote) => prevNote.id !== noteInstance.id));
-      createSuccessfulToast(`${noteInstance.title} deleted successfully.`);
-    },
-    [createSuccessfulToast]
-  );
+  const removeNoteFromListHandler = useCallback((deletedNote: API_NoteType) => {
+    setNotes((prevNotes) => prevNotes.filter((prevNote) => prevNote.id !== deletedNote.id));
+  }, []);
 
   //-----------
 
@@ -61,14 +50,7 @@ const ManageNotesFeature: React.FC<ManageNotesFeatureType> = ({
         noRowsReturnMsg={noRowsReturnMsg}
         gridTemplateColumns={notesGridColumns}
         rowActionsHandler={({ rowData }) => (
-          <ButtonComponent
-            size={buttonSizes.small}
-            styleType={buttonStyleTypes.transparentWithBorder}
-            tooltipTitle={`Delete "${rowData.title}"`}
-            onClickAction={() => deleteNoteHandler(rowData)}
-          >
-            Delete
-          </ButtonComponent>
+          <DeleteNoteFeature noteData={rowData} onNoteDeletedHandler={removeNoteFromListHandler} />
         )}
       />
     </section>

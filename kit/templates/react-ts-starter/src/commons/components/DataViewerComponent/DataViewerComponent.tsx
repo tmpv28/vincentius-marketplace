@@ -32,7 +32,8 @@ const DataViewerComponent = <T,>({
     headRow: `DataViewerComponent__row DataViewerComponent__row--head ${customClassNames.headRow || ""}`,
     headCell: `DataViewerComponent__headCell ${customClassNames.headCell || ""}`,
     row: `DataViewerComponent__row ${customClassNames.row || ""}`,
-    cell: `DataViewerComponent__cell ${customClassNames.cell || ""}`
+    cell: `DataViewerComponent__cell ${customClassNames.cell || ""}`,
+    actionsCell: `DataViewerComponent__cell DataViewerComponent__cell--actions ${customClassNames.cell || ""} ${customClassNames.actionsCell || ""}`
   };
   const rowStyleConfigs = isNullOrEmpty(gridTemplateColumns) ? EMPTY_OBJ : { gridTemplateColumns };
 
@@ -90,7 +91,7 @@ const DataViewerComponent = <T,>({
           ))}
 
           {hasRowActions && (
-            <div className={`${classNames.cell} DataViewerComponent__cell--actions`}>
+            <div className={classNames.actionsCell}>
               {rowActionsHandler({ rowData: rowDataInstance })}
             </div>
           )}

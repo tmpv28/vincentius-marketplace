@@ -19,16 +19,16 @@
     gap: 4px;
     padding: 12px 16px;
 
-    background-color: $color_light_black;
+    background-color: $color_surface;
     border-left: 4px solid $color_gray;
     border-radius: 4px;
-    box-shadow: 0 8px 24px themeRgba(--color-black, 0.55);
+    box-shadow: 0 8px 24px themeRgba(--color-shadow, 0.55);
 
     cursor: pointer;
   }
 
   &__title {
-    color: $color_white;
+    color: $color_text_primary;
 
     font-family: $font_family_base;
     font-weight: $font_weight_medium;
@@ -36,7 +36,7 @@
   }
 
   &__msg {
-    color: $color_light_gray;
+    color: $color_text_secondary;
 
     font-size: 12px;
     line-height: 16px;

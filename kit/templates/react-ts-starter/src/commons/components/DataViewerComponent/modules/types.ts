@@ -28,6 +28,7 @@ export interface DataViewerComponentType<T> {
     headCell?: string;
     row?: string;
     cell?: string;
+    actionsCell?: string;
   };
   styleConfigs?: React.CSSProperties;
 }

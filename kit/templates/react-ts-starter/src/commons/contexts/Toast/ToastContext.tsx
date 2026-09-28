@@ -44,6 +44,8 @@ const ToastContext: React.FC<GenericProviderType> = ({ children }: GenericProvid
 
       setToasts((prevToasts) => [...prevToasts, newToast]);
 
+      // || rather than ??, on purpose: a delay of 0 would dismiss the toast before it is seen, so
+      // 0 falls back to the default exactly like an absent delay.
       const treatedDelay = newToast.autoCloseDelay || toastDefaultDelay;
       autoCloseTimeoutsRef.current.push(setTimeout(() => removeToast(newToast.id), treatedDelay));
     },

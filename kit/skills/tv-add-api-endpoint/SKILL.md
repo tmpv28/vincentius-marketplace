@@ -33,5 +33,6 @@ The reference is the one the project's `CLAUDE.md` names, else the template at
 
 ## 3. Finish
 
-A colocated test for the guard and the validator. `pnpm std:check` clean. Report the controller used
+A colocated test for the guard and the validator; a guard written inline in the hook is extracted into
+`modules/` first, so it can be tested on its own. `pnpm std:check` clean. Report the controller used
 and why.

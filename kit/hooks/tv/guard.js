@@ -14,6 +14,7 @@ const { spawnSync } = require("node:child_process");
 const { commandBaseName, extractHeredocs, lexCommand, splitCommands, stripCommandPrefix } = require("./shell-command.js");
 const { parseGitInvocation } = require("./git-invocation.js");
 const { readInput, cwdOf } = require("./hook-input.js");
+const { CODE_ADJACENT_FILE } = require("./code-extensions.js");
 
 // ─── Secret files ───────────────────────────────────────────
 
@@ -21,6 +22,9 @@ const SECRET_PATH = /(^|\/)\.ssh(\/|$)|\.credentials\.json|(^|\/)id_(rsa|ed25519
 // A public key is meant to be shared: cat ~/.ssh/id_ed25519.pub is how it gets pasted somewhere.
 const PUBLIC_KEY = /\.pub$/;
 const ENV_FILE = /^\.env(?:\.([^.]+)(?:\..*)?)?$/;
+// src/lib/.env.ts and .env.d.ts are source code about the environment, not environment files. Data
+// formats in the code list stay secrets: a .env.json or .env.yml can hold the same values.
+const isEnvSourceCode = (baseName) => CODE_ADJACENT_FILE.test(baseName) && !/\.(json|ya?ml|sh|ps1)$/i.test(baseName);
 const SCHEMA_SUFFIXES = new Set(["example", "sample", "template", "dist", "defaults"]);
 const GLOB = /[*?[{]/;
 
@@ -62,7 +66,7 @@ const findSecretIn = (value, baseDir, isEnvRuleSkipped = false, isWhitespaceSpli
     if (isEnvRuleSkipped) continue;
     const baseName = lowerFragment.slice(lowerFragment.lastIndexOf("/") + 1);
     const envMatch = ENV_FILE.exec(baseName);
-    if (!envMatch || SCHEMA_SUFFIXES.has(envMatch[1])) continue;
+    if (!envMatch || SCHEMA_SUFFIXES.has(envMatch[1]) || isEnvSourceCode(baseName)) continue;
     if (envMatch[1]) return baseName;
     const folder = fragment.slice(0, fragment.length - baseName.length) || ".";
     if (GLOB.test(folder)) return ".env (under a glob)";
@@ -116,7 +120,11 @@ const CODE_COMMENT_LINE = /^[ \t]*(\/\/|#).*$/gm;
 const STRING_LITERAL = /(["'`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
 const XARGS_OPTIONS_WITH_VALUE = new Set(["-n", "-L", "-P", "-I", "-d", "-E", "-s", "-a"]);
 
-const NON_READING_COMMANDS = new Set(["echo", "printf", "test", "[", "[[", "test-path", "write-host", "write-output", "where-object"]);
+const NON_READING_COMMANDS = new Set(["echo", "printf", "write-host", "write-output", "where-object"]);
+// Commands that touch a file without reading it: an existence check, or a delete. Their arguments are
+// not checked at all, so test -f ~/.ssh/id_ed25519 and rm -f .env.local pass; a recursive delete of
+// a root or home is still caught by the delete rules, and a redirect is still checked.
+const EXISTENCE_CHECKS = new Set(["test", "[", "[[", "test-path"]);
 // Listing names reads no content, so even ~/.ssh may be listed; but a listing piped onward or wrapped
 // in ( ) hands those files to something that may read them (gci .env* | Get-Content).
 const LISTING_COMMANDS = new Set(["get-childitem", "gci", "ls", "dir", "get-item", "gi"]);
@@ -290,18 +298,30 @@ const contentValueIndexes = (args) => {
   return [...valueIndexes, ...positionalIndexes.slice(hasNamedPath ? 0 : 1)];
 };
 
+// --env-file (node, tsx, docker compose) and dotenv -e load a file into the process's environment,
+// not into context, whatever the command that takes them.
+const envLoaderIndexes = (values) => {
+  const envFileIndexes = values.flatMap((value, index) =>
+    /^--env-file(-if-exists)?=/.test(value) || /^--env-file(-if-exists)?$/.test(values[index - 1] ?? "") ? [index] : []);
+  const dotenvAt = values.findIndex((value) => /^dotenv(-cli)?$/.test(commandBaseName(value)));
+  if (dotenvAt === -1) return envFileIndexes;
+  // dotenv's own options end at --; an -e after that belongs to the command it runs.
+  const optionsEnd = values.indexOf("--", dotenvAt) === -1 ? values.length : values.indexOf("--", dotenvAt);
+  const dotenvIndexes = values.flatMap((value, index) =>
+    index > dotenvAt && index < optionsEnd && (/^-e=/.test(value) || values[index - 1] === "-e") ? [index] : []);
+  return [...envFileIndexes, ...dotenvIndexes];
+};
+
 // Words that name no file read into context: grep's pattern and --exclude, the pattern of git grep and
-// Select-String, git log --grep, and node --env-file, which loads the file into the process, not into
-// context. Indexes are into the command's words.
+// Select-String, git log --grep, and an env file loaded into a process. Indexes are into the command's words.
 const unreadWordIndexes = (values, name, args, commandIndex, git) => {
   const fromArgs = (indexes, offset) => indexes.map((index) => offset + index);
-  if (GREP_COMMANDS.has(name)) return fromArgs([...grepPatternIndexes(args), ...grepExcludeIndexes(args)], commandIndex + 1);
-  if (name === "select-string" || name === "sls") return fromArgs(selectStringPatternIndexes(args), commandIndex + 1);
-  if (name === "node")
-    return fromArgs(args.flatMap((word, index) => (/^--env-file(-if-exists)?=/.test(word) ? [index] : /^--env-file(-if-exists)?$/.test(word) ? [index + 1] : [])), commandIndex + 1);
-  if (git?.subcommand === "grep") return fromArgs(grepPatternIndexes(values.slice(git.subcommandIndex + 1)), git.subcommandIndex + 1);
-  if (git) return values.flatMap((value, index) => (/^--grep=/.test(value) || values[index - 1] === "--grep" ? [index] : []));
-  return [];
+  const envLoaded = envLoaderIndexes(values);
+  if (GREP_COMMANDS.has(name)) return [...envLoaded, ...fromArgs([...grepPatternIndexes(args), ...grepExcludeIndexes(args)], commandIndex + 1)];
+  if (name === "select-string" || name === "sls") return [...envLoaded, ...fromArgs(selectStringPatternIndexes(args), commandIndex + 1)];
+  if (git?.subcommand === "grep") return [...envLoaded, ...fromArgs(grepPatternIndexes(values.slice(git.subcommandIndex + 1)), git.subcommandIndex + 1)];
+  if (git) return [...envLoaded, ...values.flatMap((value, index) => (/^--grep=/.test(value) || values[index - 1] === "--grep" ? [index] : []))];
+  return envLoaded;
 };
 
 // cp .env.example .env.local, Copy-Item -Path .env.example -Destination .env.local: a schema source
@@ -319,6 +339,17 @@ const isSeedCopy = (name, args) => {
   const source = named.source ?? positional.shift();
   const destination = named.destination ?? positional.shift();
   return positional.length === 0 && SEED_SOURCE.test(source ?? "") && SEED_TARGET.test(destination ?? "");
+};
+
+// cat .env.example > .env.local: the same seed, written as a redirect. The schema's bytes go to the
+// file, never to the terminal, so exactly one source and exactly one redirect to .env.local.
+const SEED_PRINTERS = new Set(["cat", "type", "get-content", "gc"]);
+const isSeedRedirect = (name, args, redirects) => {
+  const sources = args.filter((word) => !word.startsWith("-"));
+  return (
+    SEED_PRINTERS.has(name) && sources.length === 1 && SEED_SOURCE.test(sources[0].replace(/\\/g, "/")) &&
+    redirects.length === 1 && redirects[0].operator === ">" && SEED_TARGET.test(redirects[0].target.value.replace(/\\/g, "/"))
+  );
 };
 
 // pipeConsumer is the command this one pipes into, or null.
@@ -342,11 +373,12 @@ const findSecretInCommand = (command, masked, cwd, dialect, pipeConsumer) => {
     dialect === "windows" && command.words[commandIndex]?.isQuoted === true && !isWrapped && command.openedBy !== "&" &&
     (consumerName === null || PIPE_WRITERS.has(consumerName));
   const isListingOnly = LISTING_COMMANDS.has(name) && !isWrapped && pipeConsumer === null;
+  const isTouchOnly = isListingOnly || EXISTENCE_CHECKS.has(name) || DELETE_COMMANDS.has(name);
   const isNonReading = NON_READING_COMMANDS.has(name) || isLiteralOutput || (git !== null && NON_READING_GIT.has(git.subcommand));
   const unreadIndexes = unreadWordIndexes(values, name, args, commandIndex, git);
   const contentIndexes = CONTENT_WRITERS.has(name) ? contentValueIndexes(args).map((index) => commandIndex + 1 + index) : [];
   for (const [index, word] of command.words.entries()) {
-    if (isListingOnly || masked.has(word) || unreadIndexes.includes(index)) continue;
+    if (isTouchOnly || masked.has(word) || unreadIndexes.includes(index)) continue;
     const secret = findSecretIn(word.value, cwd, isNonReading || contentIndexes.includes(index), !word.isQuoted);
     if (secret) return secret;
   }
@@ -401,7 +433,7 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
     if (isCatastrophicDelete(name, args) || isCatastrophicFind(name, args) || isCatastrophicXargs(name, args, command.pipedFrom) || isPipedRemove)
       return "recursive delete on root/home";
     if (isForcePush(values)) return "force push";
-    const isSeed = isSeedCopy(name, args);
+    const isSeed = isSeedCopy(name, args) || isSeedRedirect(name, args, command.redirects);
     const secret = isSeed ? null : findSecretInCommand(command, masked, cwd, dialect, pipeConsumers.get(command) ?? null);
     if (secret) return `secret file ${secret}`;
   }

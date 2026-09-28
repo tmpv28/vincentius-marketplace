@@ -4,8 +4,8 @@
 // reads as inert rather than dimmed.
 @layer utilities {
   .readOnlyAction {
-    background-color: themeRgba(--color-dark-gray, 0.4) !important;
-    border-color: $color_dark_gray !important;
+    background-color: themeRgba(--color-surface-raised, 0.4) !important;
+    border-color: $color_border !important;
 
     cursor: default !important;
   }

@@ -14,8 +14,8 @@
     gap: 12px;
     padding: 14px 16px;
 
-    background-color: themeRgba(--color-light-black, 0.75);
-    border: 1px solid $color_dark_gray;
+    background-color: themeRgba(--color-surface, 0.75);
+    border: 1px solid $color_border;
     border-radius: 6px;
 
     transition: border-color 0.2s linear;

@@ -340,8 +340,9 @@ const AddNoteFeature = ({ reloadNotes }: AddNoteFeatureType) => {
 ```
 
 The plain typed arrow is slightly the more common of the two and is the better default for new
-code: it says the same thing once. `React.FC<T>` is required where the component is generic over
-its row type, and it reads well on a short props list, where annotating **twice** is a deliberate
+code: it says the same thing once. A component generic over its row type must be the plain typed arrow
+(`<T,>(props: PropsType<T>) => ...`), because `React.FC` cannot carry a type parameter. `React.FC`
+reads well on a short props list, where annotating **twice** is a deliberate
 redundancy because the destructure is where people actually read what a component takes. On a wide
 props list the second annotation is noise; drop it.
 

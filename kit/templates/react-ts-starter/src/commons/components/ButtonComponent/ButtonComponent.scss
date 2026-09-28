@@ -11,7 +11,7 @@
   padding: 10px 18px;
   overflow: hidden;
 
-  color: $color_white;
+  color: $color_text_primary;
   background-color: transparent;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -38,7 +38,7 @@
     display: inline-block;
     padding: 0 6px;
 
-    color: $color_black;
+    color: $color_text_on_accent;
     background-color: $color_accent;
     border-radius: 9px;
 
@@ -53,8 +53,8 @@
 
     display: inline-block;
 
-    border: 2px solid themeRgba(--color-white, 0.3);
-    border-top-color: $color_white;
+    border: 2px solid themeRgba(--color-text-primary, 0.3);
+    border-top-color: $color_text_primary;
     border-radius: 50%;
 
     animation: button-component-spin 0.7s linear infinite;
@@ -83,7 +83,7 @@
   }
 
   &--normal {
-    background-color: $color_dark_gray;
+    background-color: $color_surface_raised;
 
     &:hover {
       background-color: $color_gray;
@@ -91,7 +91,7 @@
   }
 
   &--accent {
-    color: $color_black;
+    color: $color_text_on_accent;
     background-color: $color_accent;
 
     &:hover {
@@ -100,7 +100,7 @@
   }
 
   &--danger {
-    color: $color_white;
+    color: $color_text_primary;
     background-color: themeRgba(--color-red, 0.85);
 
     &:hover {
@@ -112,13 +112,13 @@
     background-color: transparent;
 
     &:hover {
-      background-color: themeRgba(--color-white, 0.08);
+      background-color: themeRgba(--color-text-primary, 0.08);
     }
   }
 
   &--transparent-with-border {
     background-color: transparent;
-    border-color: $color_dark_gray;
+    border-color: $color_border;
 
     &:hover {
       border-color: $color_accent;

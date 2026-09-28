@@ -6,7 +6,7 @@
   gap: 6px;
 
   &__label {
-    color: $color_light_gray;
+    color: $color_text_secondary;
 
     font-family: $font_family_base;
     font-weight: $font_weight_medium;
@@ -20,9 +20,9 @@
 
     padding: 10px 12px;
 
-    color: $color_white;
-    background-color: themeRgba(--color-black, 0.4);
-    border: 1px solid $color_dark_gray;
+    color: $color_text_primary;
+    background-color: themeRgba(--color-surface-base, 0.4);
+    border: 1px solid $color_border;
     border-radius: 4px;
 
     font-family: $font_family_base;

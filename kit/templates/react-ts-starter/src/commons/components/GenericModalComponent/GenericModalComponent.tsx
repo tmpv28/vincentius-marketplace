@@ -39,6 +39,8 @@ const GenericModalComponent: React.FC<GenericModalComponentType> = ({
 
   //-----------
 
+  // No `if (!isOpen) return null` here: Mantine's Modal already unmounts its content while closed,
+  // which is the overlay mount contract that guard exists to enforce.
   return (
     <Modal
       opened={isGenericModalOpen}

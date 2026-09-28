@@ -7,8 +7,8 @@
   gap: 12px;
   padding: 24px;
 
-  background-color: themeRgba(--color-light-black, 0.5);
-  border: 1px dashed $color_dark_gray;
+  background-color: themeRgba(--color-surface, 0.5);
+  border: 1px dashed $color_border;
   border-radius: 6px;
 
   &__icon {

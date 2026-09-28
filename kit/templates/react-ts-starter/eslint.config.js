@@ -51,6 +51,7 @@ export default typescriptEslint.config(
       "no-redeclare": "off",
       "@typescript-eslint/no-redeclare": "error",
       "unused-imports/no-unused-imports": "error",
+      "react-hooks/rules-of-hooks": "error",
 
       // Two rules Airbnb contributed that are worth keeping on their own merits rather than
       // losing with the config that happened to carry them.
@@ -89,7 +90,6 @@ export default typescriptEslint.config(
       // Dependency arrays express intent here and a mechanical fix makes worse code. Off means
       // you are responsible, not that it does not matter.
       "react-hooks/exhaustive-deps": "off",
-      "react-hooks/rules-of-hooks": "off",
 
       // TypeScript owns these, and `any` is a decision taken at boundaries with a comment.
       "react/prop-types": "off",

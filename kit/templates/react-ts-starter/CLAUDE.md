@@ -45,7 +45,7 @@ src/
 │   ├── contexts/                         # Four-file contexts; state/actions split only where it earns it
 │   ├── systems/responseObjectSystem/     # One vocabulary for "did this work and why not"
 │   ├── types/ constants/ utils/          # generic.ts, shared.ts, typeChecks/, formatting/
-├── features/Notes/                       # AddNote, ManageNotes
+├── features/Notes/                       # AddNote, DeleteNote, ManageNotes
 ├── pages/NotesPage/                      # Layout orchestration only
 ├── routes/                               # Route table as data, router generated from it
 └── resources/styles/                     # callers/, variables/, mixins/, defaultComponentStyles/
