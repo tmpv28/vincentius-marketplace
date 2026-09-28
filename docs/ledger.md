@@ -137,3 +137,9 @@ Recorded as they happen, in the shape: what was wrong, what was checked, what is
   (junctions), kit hooks swept in every event, pre-0.2 manifests hashed against today's kit, one
   vendor-check allow rule per source. Rules: "Dates" moved to testing; stale .claude/memory and
   template README paths fixed; rules-map --check rejects an unlabelled section.
+- Pass 4: installer and scripts clean; hooks and rules not. Hooks: three pass-3 regressions (PowerShell
+  reads through parentheses or pipes, prose split into paths, filtered Get-ChildItem deletes) and
+  Select-String/git grep patterns; interpreter heredocs checked by language; `rm -rf ~/.*` denied; seeding
+  the local env file from any schema copy allowed. tests/unit/everyday-commands.test.mjs pins every
+  reviewer example so fixes cannot regress silently. Rules: inline styles and action-state classes reach
+  tsx; skills no longer point at a lazy-fetch controller the template lacks; template vite.config fixed.

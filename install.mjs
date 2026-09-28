@@ -42,7 +42,9 @@ const readManifest = () => {
   // Manifests before 0.2 listed files without hashes and never recorded the status line. A file that
   // still equals what the kit renders today is taken as unedited; any other counts as edited.
   if (Array.isArray(manifest.files)) {
-    const kitHashes = currentKitHashes();
+    // An unreviewed vendored item stops the build; then every file counts as edited and is backed up.
+    let kitHashes = {};
+    try { kitHashes = currentKitHashes(); } catch { log("!", "could not rebuild the kit to compare files; every file will be backed up"); }
     manifest.files = Object.fromEntries(manifest.files.map((rel) => [rel, kitHashes[rel] ?? null]));
     manifest.statusLine ??= snippet(join(KIT, "settings", "hooks.snippet.json")).statusLine.command;
   }
@@ -164,21 +166,21 @@ export const mergeSettings = (current, addition, { kitStatusLine = null } = {}) 
   const kept = [];
   // Every kit hook goes, in every event, before the snippet's come back: one the kit dropped would run a deleted script.
   if (addition.hooks && Object.values(addition.hooks).flat().some((group) => group.hooks.some(isKitHook)))
-    for (const event of Object.keys(next.hooks || {})) {
-      next.hooks[event] = withoutHooks(next.hooks[event], isKitHook);
-      if (next.hooks[event].length === 0) delete next.hooks[event];
-    }
+    for (const event of Object.keys(next.hooks || {})) next.hooks[event] = withoutHooks(next.hooks[event], isKitHook);
   for (const [event, groups] of Object.entries(addition.hooks || {})) {
     next.hooks = next.hooks || {};
     const incoming = new Set(groups.flatMap((group) => group.hooks.map(hookId)));
     next.hooks[event] = [...withoutHooks(next.hooks[event] || [], (hook) => incoming.has(hookId(hook))), ...groups];
   }
+  // Emptied events go only now, so the ones that come back keep their place and a re-run writes nothing.
+  for (const event of Object.keys(next.hooks || {})) if (next.hooks[event].length === 0) delete next.hooks[event];
   for (const list of ["allow", "ask", "deny"]) {
     const wanted = addition.permissions?.[list];
     if (!wanted) continue;
     next.permissions = next.permissions || {};
-    // A rule naming this repo's vendor-check replaces one naming an older copy (each plugin version is a new folder).
-    const isVendorCheckRule = (rule) => /\/scripts\/vendor-check\.mjs/.test(rule);
+    // A rule naming this kit's vendor-check replaces one naming an older copy of the kit (each plugin version is
+    // a new folder); a rule for another repo's script of the same name is not the kit's and stays.
+    const isVendorCheckRule = (rule) => /vincentius-marketplace\/.*scripts\/vendor-check\.mjs/.test(rule);
     const existing = (next.permissions[list] || []).filter((rule) => !isVendorCheckRule(rule) || wanted.includes(rule) || !wanted.some(isVendorCheckRule));
     next.permissions[list] = [...new Set([...existing, ...wanted])];
   }

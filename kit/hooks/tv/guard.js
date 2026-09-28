@@ -4,7 +4,8 @@
 // determined adversary. So it closes the cheap, plausible bypasses, keeps false positives down, and
 // stops short of being a shell parser. The permission rules stay the real boundary.
 // .env rule follows TV 00 #7: a committed .env is a schema, so a git-tracked .env may be read;
-// every other .env* file is a secret, except the copy that seeds .env.local from the schema.
+// every other .env* file is a secret, except the copy that seeds .env.local from the schema (.env,
+// .env.example, .env.sample, .env.template, .env.dist or .env.defaults).
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -21,8 +22,12 @@ const ENV_FILE = /^\.env(?:\.([^.]+)(?:\..*)?)?$/;
 const SCHEMA_SUFFIXES = new Set(["example", "sample", "template", "dist", "defaults"]);
 const GLOB = /[*?[{]/;
 
-// Seeding .env.local from the schema copies bytes without reading them into context.
-const SEED = /^\s*(cp|copy|copy-item)(\s+-\w+)*\s+["']?(\.\/)?\.env["']?\s+["']?(\.\/)?\.env\.local["']?\s*$/i;
+// Seeding .env.local from the schema (.env, or .env.example and its kin) copies bytes without reading
+// them into context. Anchored, so it cannot be chained with anything that does read.
+const SEED = new RegExp(
+  `^\\s*(cp|copy|copy-item)(\\s+-\\w+)*\\s+["']?(\\./)?\\.env(\\.(${[...SCHEMA_SUFFIXES].join("|")}))?["']?\\s+["']?(\\./)?\\.env\\.local["']?\\s*$`,
+  "i"
+);
 
 const isEnvTracked = (dir) =>
   spawnSync("git", ["-C", dir, "ls-files", "--error-unmatch", "--", ".env"], { encoding: "utf8", timeout: 5000 }).status === 0;
@@ -30,12 +35,13 @@ const isEnvTracked = (dir) =>
 // Git Bash spells C:\x as /c/x, which path.resolve on Windows would read as C:\c\x.
 const toNativePath = (value) => (process.platform === "win32" ? value.replace(/^\/([a-z])(?=\/|$)/i, "$1:") : value);
 
-// One word can name several files (a,b  -Path:x  {a,b}  x::$DATA  "see a and b"), and NTFS ignores
-// case and a trailing dot, so each spelling is reduced to the file Windows would actually open.
-const pathFragments = (value) =>
+// One word can name several files (a,b  -Path:x  {a,b}  x::$DATA), and NTFS ignores case and a
+// trailing dot, so each spelling is reduced to the file Windows would actually open. Whitespace
+// separates names only outside quotes: a quoted string with spaces is prose, not a list of paths.
+const pathFragments = (value, isWhitespaceSplit) =>
   value
     .replace(/\\/g, "/")
-    .split(/[,{}=<>()\s]/)
+    .split(isWhitespaceSplit ? /[,{}=<>()\s]/ : /[,{}=<>()]/)
     .flatMap((part) => part.split(/(?<!^[A-Za-z]):/))
     .map((part) => part.replace(/["']/g, "").replace(/[.\s]+$/, ""))
     .filter((part) => part !== "");
@@ -45,9 +51,9 @@ const hasEnvGlob = (value) =>
 
 // What makes `value` a secret reference, or null. isEnvRuleSkipped is for commands that never read
 // content (echo, ls, git add): they may name a .env, but the other secrets stay off limits.
-const findSecretIn = (value, baseDir, isEnvRuleSkipped = false) => {
+const findSecretIn = (value, baseDir, isEnvRuleSkipped = false, isWhitespaceSplit = true) => {
   if (!isEnvRuleSkipped && hasEnvGlob(value)) return `${value} (a glob that can match .env files)`;
-  for (const fragment of pathFragments(value)) {
+  for (const fragment of pathFragments(value, isWhitespaceSplit)) {
     const lowerFragment = fragment.toLowerCase();
     if (SECRET_PATH.test(lowerFragment)) return fragment;
     if (isEnvRuleSkipped) continue;
@@ -83,7 +89,9 @@ const HOME_PATH = canonicalPath(os.homedir());
 // Catastrophic means a root, home itself, a parent of home, or a path made only of dots. Anything
 // inside home (~/Documents, ~/proj/build) is an ordinary delete, however large.
 const isCatastrophicTarget = (target, isDotPathCatastrophic = true) => {
-  const unglobbed = target === "*" ? "." : target.replace(/\\/g, "/").replace(/\/\*$/, "/");
+  // A trailing * or dotfile glob (.*, .[!.]*, .??*) empties the folder it sits in, so the folder is the target.
+  const forward = target.replace(/\\/g, "/");
+  const unglobbed = forward === "*" || /^\.[*?[][^/]*$/.test(forward) ? "." : forward.replace(/\/(\*|\.[*?[][^/]*)$/, "/");
   const expanded = unglobbed.replace(HOME_TOKEN, HOME_PATH).replace(DRIVE_TOKEN, process.env.SystemDrive || "c:");
   const canonical = canonicalPath(expanded);
   if (DOTS_ONLY.test(canonical)) return isDotPathCatastrophic;
@@ -97,15 +105,20 @@ const DELETE_COMMANDS = new Set(["rm", "rmdir", "rd", "del", "erase", "remove-it
 // cmd.exe switches (rd /s /q, del /f) look like Git Bash drive paths once slashes are normalised.
 const CMD_SWITCH = /^\/[sqfpa](:.*)?$/i;
 const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
-const HEREDOC_INTERPRETERS = new Set([...SHELLS, "pwsh", "powershell", "python", "python3", "node"]);
+// A heredoc fed to a shell runs as commands; one fed to node or python runs as code, where only a
+// string literal can name a file (a comment about .env.local reads nothing).
+const HEREDOC_SHELLS = new Map([...[...SHELLS].map((shell) => [shell, "posix"]), ["pwsh", "windows"], ["powershell", "windows"]]);
+const HEREDOC_CODE_INTERPRETERS = new Set(["python", "python3", "node"]);
+const CODE_COMMENT_LINE = /^[ \t]*(\/\/|#).*$/gm;
+const STRING_LITERAL = /(["'`])((?:\\.|(?!\1)[^\\\n])*)\1/g;
 const XARGS_OPTIONS_WITH_VALUE = new Set(["-n", "-L", "-P", "-I", "-d", "-E", "-s", "-a"]);
 
-const NON_READING_COMMANDS = new Set(["echo", "printf", "test", "[", "[[", "ls", "test-path", "write-host", "write-output"]);
-const NON_READING_GIT = new Set(["rm", "add", "check-ignore", "ls-files", "status"]);
+const NON_READING_COMMANDS = new Set(["echo", "printf", "test", "[", "[[", "ls", "test-path", "write-host", "write-output", "dir", "get-childitem", "gci"]);
+const NON_READING_GIT = new Set(["rm", "add", "check-ignore", "ls-files", "status", "clean"]);
 const CONTENT_WRITERS = new Set(["set-content", "add-content", "sc", "ac"]);
 const CONTENT_OPTIONS_WITH_VALUE = /^-(encoding|stream|filter|include|exclude|credential|delimiter)$/i;
-const FILE_REDIRECTS = new Set([">", ">>", "<", "&>", "&>>", ">&"]);
-const MESSAGE_OPTIONS = new Set(["-m", "--message", "--body", "--title"]);
+const FILE_REDIRECTS = new Set([">", ">>", "<", "&>", "&>>", ">&", "*>", "*>>"]);
+const MESSAGE_OPTIONS = new Set(["-m", "--message", "--body", "--title", "--notes"]);
 const GREP_COMMANDS = new Set(["grep", "egrep", "fgrep", "rg"]);
 const GREP_OPTIONS_WITH_VALUE = new Set(["-A", "-B", "-C", "-m", "-d", "-D", "-f", "-g", "-t", "-T", "-j", "-M", "--file", "--glob", "--type", "--max-count", "--context", "--after-context", "--before-context"]);
 
@@ -166,7 +179,9 @@ const isCatastrophicPipedRemove = (name, args, pipedFrom) => {
   const source = stripCommandPrefix(pipedFrom.words.map((word) => word.value));
   if (!LISTING_COMMANDS.has(source.name)) return false;
   const isRecursive = args.some(isRecursiveFlag) || source.args.some(isRecursiveFlag);
-  return isRecursive && deleteTargets(source.name, source.args).some((target) => isCatastrophicTarget(target));
+  // A filtered listing (-Filter *.log, -Include bin,obj) removes matches, not the folder, so "." is safe.
+  const isFiltered = source.args.some((word) => /^-(filter|include|exclude)(:|$)/i.test(word));
+  return isRecursive && deleteTargets(source.name, source.args).some((target) => isCatastrophicTarget(target, !isFiltered));
 };
 
 const isForcePush = (words) => {
@@ -205,7 +220,7 @@ const messageWords = (command) => {
     const previous = values[index - 1] ?? "";
     return (
       MESSAGE_OPTIONS.has(previous) ||
-      /^--(message|body|title)=/.test(word.value) ||
+      /^--(message|body|title|notes)=/.test(word.value) ||
       (isGit && (/^-[a-zA-Z]+m$/.test(previous) || /^-m./.test(word.value))) ||
       (isGh && (previous === "-t" || previous === "-b"))
     );
@@ -227,6 +242,26 @@ const grepPatternIndexes = (args) => {
   return [];
 };
 
+// Select-String's pattern, by -Pattern or as its first positional argument, is a regex, not a path.
+const SELECT_STRING_OPTIONS_WITH_VALUE = /^-(path|literalpath|include|exclude|encoding|context|culture)$/i;
+const selectStringPatternIndexes = (args) => {
+  for (let index = 0; index < args.length; index++) {
+    const word = args[index];
+    if (/^-pat(t(e(r(n)?)?)?)?:/i.test(word)) return [index];
+    if (/^-pat(t(e(r(n)?)?)?)?$/i.test(word)) return [index + 1];
+    if (SELECT_STRING_OPTIONS_WITH_VALUE.test(word)) index++;
+    else if (!word.startsWith("-")) return [index];
+  }
+  return [];
+};
+
+// grep --exclude=.env names a file to skip, the opposite of reading it.
+const grepExcludeIndexes = (args) =>
+  args.flatMap((word, index) => {
+    if (/^--exclude(-dir)?=/.test(word)) return [index];
+    return word === "--exclude" || word === "--exclude-dir" ? [index + 1] : [];
+  });
+
 // Set-Content's text, given by -Value or as the positional argument after the path, is written, not read.
 const contentValueIndexes = (args) => {
   const valueIndexes = [];
@@ -245,25 +280,52 @@ const contentValueIndexes = (args) => {
   return [...valueIndexes, ...positionalIndexes.slice(hasNamedPath ? 0 : 1)];
 };
 
-const findSecretInCommand = (command, masked, cwd, dialect) => {
+// Words that are search patterns or exclusions, never paths: grep's pattern and --exclude, the
+// pattern of git grep and Select-String, and git log --grep. Indexes are into the command's words.
+const patternWordIndexes = (values, name, args, commandIndex, git) => {
+  const fromArgs = (indexes, offset) => indexes.map((index) => offset + index);
+  if (GREP_COMMANDS.has(name)) return fromArgs([...grepPatternIndexes(args), ...grepExcludeIndexes(args)], commandIndex + 1);
+  if (name === "select-string" || name === "sls") return fromArgs(selectStringPatternIndexes(args), commandIndex + 1);
+  if (git?.subcommand === "grep") return fromArgs(grepPatternIndexes(values.slice(git.subcommandIndex + 1)), git.subcommandIndex + 1);
+  if (git) return values.flatMap((value, index) => (/^--grep=/.test(value) || values[index - 1] === "--grep" ? [index] : []));
+  return [];
+};
+
+const findSecretInCommand = (command, masked, cwd, dialect, isPipedOut) => {
   const values = command.words.map((word) => word.value);
+  // $msg = @'...'@ in PowerShell stores text; the command that later uses $msg is checked on its own.
+  const isStringAssignment =
+    dialect === "windows" && /^\$[\w:]+$/.test(values[0] ?? "") && values[1] === "=" && command.words.length === 3 &&
+    command.words[2].isQuoted && command.words[2].substitutions.length === 0;
+  if (isStringAssignment) return null;
+
   const { name, args, commandIndex } = stripCommandPrefix(values);
   const git = parseGitInvocation(values);
-  // A PowerShell statement that is only a string ('.env.local' >> .gitignore) writes that text, like echo.
-  const isLiteralOutput = dialect === "windows" && command.words[commandIndex]?.isQuoted === true;
+  // A PowerShell statement that is only a string ('.env.local' >> .gitignore) writes that text, like
+  // echo. Not inside ( ), where it is an argument (Get-Content ('.env.local')), nor when piped onward.
+  const isLiteralOutput =
+    dialect === "windows" && command.words[commandIndex]?.isQuoted === true && command.openedBy !== "(" && !isPipedOut;
   const isNonReading = NON_READING_COMMANDS.has(name) || isLiteralOutput || (git !== null && NON_READING_GIT.has(git.subcommand));
-  const patternIndexes = GREP_COMMANDS.has(name) ? grepPatternIndexes(args).map((index) => commandIndex + 1 + index) : [];
+  const patternIndexes = patternWordIndexes(values, name, args, commandIndex, git);
   const contentIndexes = CONTENT_WRITERS.has(name) ? contentValueIndexes(args).map((index) => commandIndex + 1 + index) : [];
-  // git log --grep=id_rsa searches commit messages; the value is a pattern, not a path.
-  const isGitSearchPattern = (index) => git !== null && (/^--grep=/.test(values[index]) || values[index - 1] === "--grep");
   for (const [index, word] of command.words.entries()) {
-    if (masked.has(word) || patternIndexes.includes(index) || isGitSearchPattern(index)) continue;
-    const secret = findSecretIn(word.value, cwd, isNonReading || contentIndexes.includes(index));
+    if (masked.has(word) || patternIndexes.includes(index)) continue;
+    const secret = findSecretIn(word.value, cwd, isNonReading || contentIndexes.includes(index), !word.isQuoted);
     if (secret) return secret;
   }
   // Redirections always touch the file, whatever the command: echo x > .env.local overwrites a secret.
   for (const redirect of command.redirects.filter((candidate) => FILE_REDIRECTS.has(candidate.operator))) {
-    const secret = findSecretIn(redirect.target.value, cwd);
+    const secret = findSecretIn(redirect.target.value, cwd, false, !redirect.target.isQuoted);
+    if (secret) return secret;
+  }
+  return null;
+};
+
+// node and python heredoc bodies are code: full-line comments are dropped, and each string literal
+// is checked as one path, so "// never read .env.local" passes and readFileSync(".env.local") does not.
+const findSecretInCode = (code, cwd) => {
+  for (const literal of code.replace(CODE_COMMENT_LINE, "").matchAll(STRING_LITERAL)) {
+    const secret = findSecretIn(literal[2], cwd, false, false);
     if (secret) return secret;
   }
   return null;
@@ -286,6 +348,7 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
   const quotedData = commands.flatMap((command) => command.words.filter((word) => word.isQuoted && word.substitutions.length === 0));
   if (PIPE_TO_SHELL.some((pattern) => pattern.test(maskWords(text, new Set([...masked, ...quotedData]))))) return "pipe-to-shell";
   const isSeed = SEED.test(commandText.replace(/\\/g, "/"));
+  const pipedOut = new Set(commands.map((command) => command.pipedFrom).filter(Boolean));
 
   for (const command of commands) {
     const values = command.words.map((word) => word.value);
@@ -302,13 +365,16 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
     if (isCatastrophicDelete(name, args) || isCatastrophicFind(name, args) || isCatastrophicXargs(name, args, command.pipedFrom) || isPipedRemove)
       return "recursive delete on root/home";
     if (isForcePush(values)) return "force push";
-    const secret = isSeed ? null : findSecretInCommand(command, masked, cwd, dialect);
+    const secret = isSeed ? null : findSecretInCommand(command, masked, cwd, dialect, pipedOut.has(command));
     if (secret) return `secret file ${secret}`;
   }
 
-  for (const heredoc of heredocs.filter((candidate) => HEREDOC_INTERPRETERS.has(candidate.receiver))) {
-    const violation = findViolation(heredoc.body, dialect, cwd, depth + 1);
+  for (const heredoc of heredocs) {
+    const shellDialect = HEREDOC_SHELLS.get(heredoc.receiver);
+    const violation = shellDialect ? findViolation(heredoc.body, shellDialect, cwd, depth + 1) : null;
     if (violation) return violation;
+    const secret = HEREDOC_CODE_INTERPRETERS.has(heredoc.receiver) ? findSecretInCode(heredoc.body, cwd) : null;
+    if (secret) return `secret file ${secret}`;
   }
   return null;
 };

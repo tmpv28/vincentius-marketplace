@@ -169,6 +169,37 @@ const POWERSHELL = [
   ["Bash", { command: 'cat "config/.env.local and more"' }, "deny"]
 ];
 
+// Pass 4: regressions from pass 3 and the next layer of PowerShell and pattern arguments.
+const PASS_FOUR = [
+  ["PowerShell", { command: "[IO.File]::ReadAllText('.env.local')" }, "deny"],
+  ["PowerShell", { command: "Get-Content ('.env.local')" }, "deny"],
+  ["PowerShell", { command: "'.env.local' | Get-Content" }, "deny"],
+  ["PowerShell", { command: "$msg = @'\nDon't touch .env.local\n'@\ngit commit -m $msg" }, "allow"],
+  ["PowerShell", { command: "$secret = Get-Content .env.local" }, "deny"],
+  ["Bash", { command: 'gh release create v1.2.0 --notes "Stop reading .env.local at startup"' }, "allow"],
+  ["Bash", { command: "node --input-type=module <<'EOF'\n// never read .env.local here\nconsole.log(process.version);\nEOF" }, "allow"],
+  ["Bash", { command: "node --input-type=module <<'EOF'\nimport { readFileSync } from \"node:fs\";\nreadFileSync(\".env.local\", \"utf8\");\nEOF" }, "deny"],
+  ["Bash", { command: "python3 - <<'EOF'\n# loads .env.local elsewhere\nprint('ok')\nEOF" }, "allow"],
+  ["Bash", { command: "pwsh <<'EOF'\nGet-Content .env.local\nEOF" }, "deny"],
+  ["PowerShell", { command: "Get-ChildItem -Path . -Filter *.log -Recurse | Remove-Item -Force" }, "allow"],
+  ["PowerShell", { command: "Get-ChildItem . -Recurse -Include bin,obj | Remove-Item -Recurse -Force" }, "allow"],
+  ["PowerShell", { command: "Get-ChildItem * -Include *.bak -Recurse | Remove-Item" }, "allow"],
+  ["PowerShell", { command: `Get-ChildItem C:${B} -Filter *.log -Recurse | Remove-Item` }, "deny"],
+  ["PowerShell", { command: `Select-String -Pattern "${B}.env" -Path src${B}*.ts` }, "allow"],
+  ["PowerShell", { command: "Select-String -Path .env.local -Pattern KEY" }, "deny"],
+  ["Bash", { command: `git grep -n '${B}.env' -- src` }, "allow"],
+  ["Bash", { command: "git grep KEY -- .env.local" }, "deny"],
+  ["PowerShell", { command: `Remove-Item -Recurse -Force .${B}dist *> $null` }, "allow"],
+  ["Bash", { command: "rm -rf ~/.*" }, "deny"],
+  ["Bash", { command: 'rm -rf "$HOME"/.[!.]*' }, "deny"],
+  ["Bash", { command: "rm -rf .cache*" }, "allow"],
+  ["Bash", { command: "rm -rf ~/proj/.cache*" }, "allow"],
+  ["PowerShell", { command: "dir .env*" }, "allow"],
+  ["PowerShell", { command: "Get-ChildItem -Force .env*" }, "allow"],
+  ["Bash", { command: "grep -rn KEY --exclude=.env src" }, "allow"],
+  ["Bash", { command: "git clean -fdx -e .env.local" }, "allow"]
+];
+
 // Finding 5: pipe-to-shell in every shape, and prose that only mentions it.
 const PIPE_TO_SHELL = [
   ["PowerShell", { command: "iex (iwr x)" }, "deny"],
@@ -254,6 +285,7 @@ describe("guard.js", () => {
   describe("when a command names a .env without reading it", () => runCases(NON_READING));
   describe("when another credential file is named", () => runCases(MORE_SECRETS));
   describe("when PowerShell writes, tests or quotes a file name", () => runCases(POWERSHELL));
+  describe("when a string is an argument, a pattern or code rather than a command", () => runCases(PASS_FOUR));
 
   describe("when the .env is committed (a schema, TV 00 #7)", () => {
     it("allows reading it", () => assert.equal(check(trackedRepo, "Bash", { command: "cat .env" }), false));

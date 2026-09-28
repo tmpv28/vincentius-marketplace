@@ -212,7 +212,7 @@ import GenericModalComponent from "../../../commons/components/GenericModalCompo
 import ButtonComponent from "../../../commons/components/ButtonComponent/ButtonComponent";
 import InputComponent from "../../../commons/components/InputComponent/InputComponent";
 
-import { ReturnEventType } from "../../../commons/types/returnEvent";
+import { ReturnEventType } from "../../../commons/types/generic";
 import { areEqual } from "../../../commons/utils/typeChecks/equalityChecks";
 
 import { API_AddNoteType } from "../../../api/queries/notes/create/endpointTypes";

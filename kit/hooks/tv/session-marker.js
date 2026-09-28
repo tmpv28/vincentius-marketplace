@@ -8,6 +8,7 @@ const path = require("node:path");
 const markerPathFor = (sessionId) => {
   const fileName = typeof sessionId === "string" ? path.basename(sessionId) : "";
   if (fileName === "" || /^\.+$/.test(fileName)) return null;
+  // Its own copy of scripts/files.mjs's configDir(): the hooks are installed without scripts/.
   return path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude"), "state", "tv-edited", fileName);
 };
 

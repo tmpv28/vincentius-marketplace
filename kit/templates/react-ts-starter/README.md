@@ -32,6 +32,7 @@ pnpm lint:fix         # ESLint with --fix
 pnpm lint:styles      # Stylelint over every SCSS file
 
 pnpm test:no-watch    # Full test suite, single run
+pnpm test:unit        # Unit tests in jsdom, single run
 pnpm test:watch       # Test suite in watch mode
 pnpm test:coverage    # Coverage report
 
@@ -49,7 +50,7 @@ report-only ESLint pass, and it has to come back clean before anything is called
 - `responseObjectSystem`: one vocabulary for "did this work and why not", with an overloaded
   factory and a runtime brand that survives serialisation.
 - The hand-written type-check kernel: `isSpecificType`, `isNullOrEmpty`, `areEqual`.
-- A split state/actions Toast context in the five-file layout.
+- A split state/actions Toast context in the four-file layout.
 - Shared components: Button, Input, Tooltip, GenericModal, LoadingSkeleton, EmptyState and the
   toasts controller.
 - The SCSS system: callers with `@forward`, theme colours as RGB triplets on custom properties,

@@ -8,7 +8,8 @@ const HEREDOC_MARKER = /^__HEREDOC_(\d+)__$/;
 
 // Longest first, so ">>" is never read as two ">".
 const OPERATORS = ["&>>", "<<<", "&&", "||", "|&", ">>", "<<", "&>", ">&", "\n", ";", "&", "|", ">", "<", "(", ")"];
-const REDIRECT_OPERATORS = new Set([">", ">>", "<", "<<", "<<<", "&>", "&>>", ">&"]);
+const POWERSHELL_ALL_STREAMS = ["*>>", "*>"];
+const REDIRECT_OPERATORS = new Set([">", ">>", "<", "<<", "<<<", "&>", "&>>", ">&", ...POWERSHELL_ALL_STREAMS]);
 
 // Wrappers that run the command after them rather than being the command.
 const PREFIX_COMMANDS = new Set(["sudo", "env", "command", "exec", "nohup", "time", "builtin", "nice"]);
@@ -196,7 +197,9 @@ const lexCommand = (text, dialect = "posix") => {
       closeWord(index);
       index++;
     } else {
-      const operator = OPERATORS.find((candidate) => text.startsWith(candidate, index));
+      // PowerShell's *> redirects every stream; in bash a leading * is a glob, so only there is it an operator.
+      const allStreams = !isPosix && !word ? POWERSHELL_ALL_STREAMS.find((candidate) => text.startsWith(candidate, index)) : undefined;
+      const operator = allStreams ?? OPERATORS.find((candidate) => text.startsWith(candidate, index));
       if (operator) {
         // The 2 in 2>&1 is a file descriptor, not an argument.
         if (word && /^\d+$/.test(word.value) && /^[<>]/.test(operator)) word = null;
@@ -216,12 +219,13 @@ const lexCommand = (text, dialect = "posix") => {
 
 // ─── Commands ───────────────────────────────────────────────
 
-// Groups tokens into simple commands: { words, redirects, pipedFrom }, where pipedFrom is the
-// command whose output this one reads through a pipe.
+// Groups tokens into simple commands: { words, redirects, pipedFrom, openedBy }, where pipedFrom is
+// the command whose output this one reads through a pipe, and openedBy is the operator before it
+// ("(" for Get-Content ('x'), "|" for a pipe), or null for the first command.
 const splitCommands = (tokens) => {
   const commands = [];
-  const newCommand = (pipedFrom) => ({ words: [], redirects: [], pipedFrom });
-  let current = newCommand(null);
+  const newCommand = (pipedFrom, openedBy) => ({ words: [], redirects: [], pipedFrom, openedBy });
+  let current = newCommand(null, null);
   let pendingRedirect = null;
   for (const token of tokens) {
     if (token.type === "word") {
@@ -232,7 +236,7 @@ const splitCommands = (tokens) => {
     else {
       const isEmpty = current.words.length === 0 && current.redirects.length === 0;
       if (!isEmpty) commands.push(current);
-      current = newCommand(token.value === "|" && !isEmpty ? current : null);
+      current = newCommand(token.value === "|" && !isEmpty ? current : null, token.value);
       pendingRedirect = null;
     }
   }

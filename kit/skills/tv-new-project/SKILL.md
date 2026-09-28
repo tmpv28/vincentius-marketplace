@@ -35,7 +35,7 @@ evidence, or as blocked, with the reason.
 
 ## Gotchas
 
-- The seed copy is the only way `.env.local` gets created: the guard blocks reading any untracked `.env*` file.
+- The seed copy is the only way `.env.local` gets created: the guard blocks reading every `.env.*` file except a schema, and a bare `.env` unless git tracks it.
 - Windows: run the dev server and Storybook from PowerShell or Git Bash; both are fine, but paths in scripts
   must stay forward-slash.
 - A project that is not React: use the framework's official scaffolder, then apply the core and the packs that

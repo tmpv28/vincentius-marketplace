@@ -13,8 +13,8 @@ first: if something close exists, extend it instead (TV 00 #1).
 
 - Grep `src/commons/components/` for a component that already does most of this. If one exists, stop and say
   which, and how you would extend it.
-- Read, with the Read tool, `ButtonComponent/` (single DOM part) and `InputComponent/` (several parts), each file
-  including `modules/` and the story, from the project or else from the template at
+- Read, with the Read tool, `ButtonComponent/` and `InputComponent/` (both multi-part; the react pack, TV 04,
+  gives the array form for a single-part component), each file including `modules/` and the story where one exists, from the project or else from the template at
   `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/templates/react-ts-starter`.
 
 ## 2. Write it

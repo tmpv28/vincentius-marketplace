@@ -14,7 +14,7 @@ the new-project checklist: build it before building two of anything.
 - The project's `CLAUDE.md` names the reference entity ("when in doubt, read `features/Notes/` first").
   If it names none, use the template at `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/templates/react-ts-starter`.
 - Read, with the Read tool, every file of the reference slice. The Read is what loads the react, typescript,
-  accessibility and styles packs; do not skip it or substitute a summary.
+  accessibility, styles and scss packs; do not skip it or substitute a summary.
   - `src/api/queries/<ref>/endpointsDefinition.ts`, `entityTypes.ts`, `create/*`, `read/*`
   - `src/features/<Ref>/Add<RefSingular>/**` (in the template, `Notes/AddNote`), `src/features/<Ref>/Manage<Ref>/**`
   - `src/pages/<Ref>Page/**`

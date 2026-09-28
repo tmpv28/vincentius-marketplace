@@ -25,7 +25,7 @@ export default defineConfig({
     {
       name: "full-reload-api",
       handleHotUpdate({ file, server }: { file: string; server: ViteDevServer }) {
-        if (file.includes("/api/") || file.includes("\api\\")) {
+        if (file.includes("/api/") || file.includes("\\api\\")) {
           server.ws.send({ type: "full-reload" });
           return [];
         }

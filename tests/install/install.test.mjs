@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync, cpSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, lstatSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve, dirname } from "node:path";
+import { join, resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -76,7 +76,7 @@ describe("install.mjs", () => {
       const manifest = manifestOf(target);
       assert.equal(manifest.route, "clone");
       assert.match(Object.values(manifest.files)[0], /^[0-9a-f]{64}$/);
-      assert.ok(manifest.source.endsWith("vincentius-marketplace"));
+      assert.ok(manifest.source.endsWith(basename(REPO)));
     });
 
     it("leaves settings.json alone without --apply-settings", () => {
@@ -292,10 +292,11 @@ describe("install.mjs", () => {
 
     it("keeps one vendor-check allow rule when the source folder changes", () => {
       const other = fresh();
-      writeFileSync(join(other, "settings.json"), JSON.stringify({ permissions: { allow: ["Bash(node C:/old/cache/1/scripts/vendor-check.mjs*)", "Bash(ls *)"] } }));
+      writeFileSync(join(other, "settings.json"), JSON.stringify({ permissions: { allow: ["Bash(node C:/u/.claude/plugins/cache/vincentius-marketplace/vincentius/1/scripts/vendor-check.mjs*)", "Bash(node C:/other/scripts/vendor-check.mjs*)", "Bash(ls *)"] } }));
       install(other, "--apply-settings", "--personal");
       const allow = settingsOf(other).permissions.allow;
-      assert.equal(allow.filter((rule) => rule.includes("vendor-check.mjs")).length, 1);
+      assert.equal(allow.filter((rule) => rule.includes("vincentius-marketplace/vincentius/1/")).length, 0);
+      assert.ok(allow.includes("Bash(node C:/other/scripts/vendor-check.mjs*)"));
       assert.ok(allow.includes("Bash(ls *)"));
     });
 

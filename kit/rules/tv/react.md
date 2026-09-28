@@ -210,7 +210,7 @@ Rules:
 - The variable is always called `classNames`.
 - One key per DOM part, named for the part, matching the BEM element it carries.
 - Within a value: base class, then modifiers, then the caller's `customClassNames.<part>` so the
-  override wins, then the shared action-state classes.
+  override wins, then the shared action-state classes (the four named in TV 07, styles pack).
 - An inactive modifier contributes `""`, never `undefined`.
 - Declared before the `return`, never inline in the attribute.
 
@@ -342,3 +342,4 @@ library's injected ones. I accept that trade openly rather than pretending it is
 - A hardcoded colour, spacing value or breakpoint. Those come from SCSS variables and mixins.
 - Business rules that another component would need. Those go to a system, a util, or a hook.
 - A `console.log` that survived the commit.
+- Inline `style={{ }}` for anything that is not genuinely dynamic (a computed width, a transform).

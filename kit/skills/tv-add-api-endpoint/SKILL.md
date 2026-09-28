@@ -1,6 +1,6 @@
 ---
 name: tv-add-api-endpoint
-description: Use when adding an API endpoint (create, read, update, delete or lazy-fetch) to a React + TypeScript project that follows TV-STANDARD's three-layer API. Mirrors the project's reference endpoint.
+description: Use when adding an API endpoint (create, read, update or delete) to a React + TypeScript project that follows TV-STANDARD's three-layer API. Mirrors the project's reference endpoint.
 argument-hint: <entity> <operation>
 ---
 
@@ -15,7 +15,8 @@ Read, with the Read tool:
 
 - `src/api/queries/<ref>/endpointsDefinition.ts` and `entityTypes.ts`
 - the reference operation of the same kind: `create/` for mutations, `read/` for reads, each file in it
-- the controller it will use in `src/api/configs/controllers/CRUD/` and `src/commons/systems/responseObjectSystem/`
+- the controller it will use in `src/api/configs/controllers/CRUD/` and `src/commons/systems/responseObjectSystem/`.
+  If the operation needs a controller the project does not have (a lazy fetch, say), stop and ask (TV 00 #10).
 
 The reference is the one the project's `CLAUDE.md` names, else the template at
 `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/templates/react-ts-starter`.
