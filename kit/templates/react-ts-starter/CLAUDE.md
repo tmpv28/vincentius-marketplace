@@ -112,20 +112,6 @@ Add new providers to that chain by hand and update this line in the same commit.
 - Tests cover pure modules, not renders. If a rule is hard to test without rendering, the rule is
   in the wrong place and moving it is the fix.
 
-## Demo data
-
-The notes list is local React state in `ManageNotesFeature`, seeded from
-`features/Notes/ManageNotes/modules/constants/demoNotesDefinition.ts`, so the template renders a
-real page with no backend configured. Nothing fakes a request. When a server exists:
-
-1. Set `VITE_API_BASE_URL` in `.env.local`.
-2. Replace the seeded `useState` in `ManageNotesFeature` with `useReadNotes` from
-   `api/queries/notes/read/endpointCalls`.
-3. Replace the local append in `AddNoteFeature.addNoteHandler` with `useAddNote` from
-   `api/queries/notes/create/endpointCalls`.
-
-Then delete `demoNotesDefinition.ts`.
-
 ## Comment and writing style
 
 - One line, above the thing, explaining WHY. If the name and signature already say it, no comment.
@@ -142,3 +128,17 @@ Then delete `demoNotesDefinition.ts`.
 2. The TV rules in `~/.claude/rules/tv/` (core plus the packs for the files you read).
 3. This file and `README.md`.
 4. The existing `notes` entity, which is the worked example of every layer.
+
+## Demo data
+
+The notes list is local React state in `ManageNotesFeature`, seeded from
+`features/Notes/ManageNotes/modules/constants/demoNotesDefinition.ts`, so the template renders a
+real page with no backend configured. Nothing fakes a request. When a server exists:
+
+1. Set `VITE_API_BASE_URL` in `.env.local`.
+2. Replace the seeded `useState` in `ManageNotesFeature` with `useReadNotes` from
+   `api/queries/notes/read/endpointCalls`.
+3. Replace the local append in `AddNoteFeature.addNoteHandler` with `useAddNote` from
+   `api/queries/notes/create/endpointCalls`.
+
+Then delete `demoNotesDefinition.ts`.

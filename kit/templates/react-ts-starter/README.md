@@ -40,8 +40,9 @@ pnpm storybook        # Storybook on port 6006
 pnpm build-storybook  # Static Storybook build
 ```
 
-`pnpm std:check` is the one that matters. It runs Prettier, ESLint `--fix`, `tsc --noEmit` and a
-report-only ESLint pass, and it has to come back clean before anything is called done.
+`pnpm std:check` is the one that matters. It runs Prettier, ESLint `--fix`, `tsc --noEmit`, a
+report-only ESLint pass and a report-only Stylelint pass, and it has to come back clean before
+anything is called done.
 
 ## What is in the box
 
@@ -51,8 +52,8 @@ report-only ESLint pass, and it has to come back clean before anything is called
   factory and a runtime brand that survives serialisation.
 - The hand-written type-check kernel: `isSpecificType`, `isNullOrEmpty`, `areEqual`.
 - A split state/actions Toast context in the four-file layout.
-- Shared components: Button, Input, Tooltip, GenericModal, LoadingSkeleton, EmptyState and the
-  toasts controller.
+- Shared components: Button, Input, Tooltip, GenericModal, DataViewer (which owns its own loading,
+  error and empty states), LoadingSkeleton, EmptyState and the toasts controller.
 - The SCSS system: callers with `@forward`, theme colours as RGB triplets on custom properties,
   mixins injected into every stylesheet with no import line.
 

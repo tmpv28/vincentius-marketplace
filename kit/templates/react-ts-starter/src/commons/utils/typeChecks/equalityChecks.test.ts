@@ -75,6 +75,28 @@ describe("areEqualInOrder", () => {
   it("still ignores key order inside each entry", () => {
     expect(areEqualInOrder([{ a: 1, b: 2 }], [{ b: 2, a: 1 }])).toBe(true);
   });
+
+  it("does not call two different Sets equal just because neither has own keys", () => {
+    expect(areEqualInOrder(new Set([1]), new Set([2]))).toBe(false);
+  });
+
+  it("does not call two different Maps equal", () => {
+    expect(areEqualInOrder(new Map([["a", 1]]), new Map([["b", 2]]))).toBe(false);
+  });
+
+  // A timeout, so a regression to unbounded recursion fails this test instead of the suite.
+  it("terminates on two distinct cyclic graphs instead of overflowing the stack", () => {
+    expect(areEqualInOrder(makeCyclicNode("a"), makeCyclicNode("a"))).toBe(true);
+    expect(areEqualInOrder(makeCyclicNode("a"), makeCyclicNode("b"))).toBe(false);
+  }, 2000);
+
+  it("terminates on cyclic entries and still compares their arrays position for position", () => {
+    const inOrderA = [makeCyclicNode("a"), makeCyclicNode("b")];
+    const inOrderB = [makeCyclicNode("a"), makeCyclicNode("b")];
+    const reordered = [makeCyclicNode("b"), makeCyclicNode("a")];
+    expect(areEqualInOrder(inOrderA, inOrderB)).toBe(true);
+    expect(areEqualInOrder(inOrderA, reordered)).toBe(false);
+  }, 2000);
 });
 
 describe("areEqual with non-plain objects", () => {

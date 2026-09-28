@@ -39,7 +39,9 @@ const GLOB = /[*?[{]/;
 // chained after it (&& cat .env.local) is still checked on its own. Source and destination must share
 // a folder (apps/api/.env.example to apps/api/.env.local), so a seed never lands in another project.
 const SEED_COMMANDS = new Set(["cp", "copy", "copy-item", "cpi"]);
-const CHANGE_DIRECTORY_COMMANDS = new Set(["cd", "pushd", "set-location", "sl", "chdir"]);
+const PUSH_DIRECTORY_COMMANDS = new Set(["pushd", "push-location"]);
+const POP_DIRECTORY_COMMANDS = new Set(["popd", "pop-location"]);
+const CHANGE_DIRECTORY_COMMANDS = new Set(["cd", "set-location", "sl", "chdir", ...PUSH_DIRECTORY_COMMANDS]);
 const SEED_SOURCE_NAME = new RegExp(`^\\.env(\\.(${[...SCHEMA_SUFFIXES].join("|")}))?$`, "i");
 
 // Resolved against the folder the command runs in, so ./x, x and an absolute path to x agree.
@@ -155,7 +157,15 @@ const NON_READING_COMMANDS = new Set(["echo", "printf", "write-host", "write-out
 // a root or home is still caught by the delete rules, and a redirect is still checked.
 const EXISTENCE_CHECKS = new Set(["test", "[", "[[", "test-path"]);
 // touch and New-Item create a file or its timestamp; they read nothing.
-const CREATE_COMMANDS = new Set(["touch", "new-item", "ni"]);
+// Commands that touch a file without printing it: create, stat, hash, rename, open in an editor for
+// the human, or write a key (ssh-keygen -f).
+const CREATE_COMMANDS = new Set([
+  "touch", "new-item", "ni",
+  "stat", "shasum", "sha1sum", "sha256sum", "md5sum", "get-filehash",
+  "mv", "move-item", "mi", "move",
+  "code", "cursor", "notepad",
+  "ssh-keygen"
+]);
 // Cmdlets that shape a listing's objects without opening the files behind them.
 const LISTING_CONSUMERS = new Set(["select-object", "select", "where-object", "where", "?", "measure-object", "measure", "sort-object", "sort", "format-table", "ft", "format-list", "fl"]);
 // Listing names reads no content, so even ~/.ssh may be listed; but a listing piped onward or wrapped
@@ -345,7 +355,7 @@ const ENV_LOADERS = new Map([
 // file into the process's environment, not into context, whatever the command that takes them.
 const envLoaderIndexes = (values) => {
   const indexes = values.flatMap((value, index) =>
-    /^--env-file(-if-exists)?=|^dotenv_config_path=/i.test(value) || /^--env-file(-if-exists)?$/.test(values[index - 1] ?? "") ? [index] : []);
+    /^--(env-file(-if-exists)?|secret-file)=|^dotenv_config_path=/i.test(value) || /^--(env-file(-if-exists)?|secret-file)$/.test(values[index - 1] ?? "") ? [index] : []);
   const loaderAt = values.findIndex((value) => ENV_LOADERS.has(commandBaseName(value)));
   if (loaderAt === -1) return indexes;
   const { fileOptions, isStoppedByCommand } = ENV_LOADERS.get(commandBaseName(values[loaderAt]));
@@ -398,7 +408,9 @@ const unreadWordIndexes = (values, name, args, commandIndex, git) => {
   if (git) {
     const pathspecStart = isGitHistoryOnly(values, git) ? values.indexOf("--", git.subcommandIndex) : -1;
     const pathspec = pathspecStart === -1 ? [] : values.slice(pathspecStart + 1).map((value, offset) => pathspecStart + 1 + offset);
-    return [...always, ...pathspec, ...values.flatMap((value, index) => (/^--grep=/.test(value) || values[index - 1] === "--grep" ? [index] : []))];
+    // :(exclude).env.local and :!.env.local leave the file out, like grep's --exclude.
+    const excluded = values.flatMap((value, index) => (/^:(\(exclude\)|!|\^)/.test(value) ? [index] : []));
+    return [...always, ...pathspec, ...excluded, ...values.flatMap((value, index) => (/^--grep=/.test(value) || values[index - 1] === "--grep" ? [index] : []))];
   }
   return always;
 };
@@ -548,14 +560,24 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
 
   // cd apps/web && cat .env: later commands run in apps/web, so the tracked check and the seed's folder
   // are resolved there. Only a literal path moves it; cd "$DIR" leaves the session's folder in place.
+  // pushd keeps a stack that popd returns to; a ( ) group restores the folder it was entered from; and
+  // cd - goes back to a folder this text cannot know, so the session's folder is assumed again.
   let commandCwd = cwd;
+  let groupDepth = 0;
+  const directoryStack = [];
+  const cwdBeforeGroup = [];
   for (const command of commands) {
+    for (; groupDepth < command.groupDepth; groupDepth++) cwdBeforeGroup.push(commandCwd);
+    for (; groupDepth > command.groupDepth; groupDepth--) commandCwd = cwdBeforeGroup.pop() ?? cwd;
     const values = command.words.map((word) => word.value);
     const { name, args, commandIndex } = stripCommandPrefix(values);
     const pathWords = command.words.slice(commandIndex + 1).filter((word) => !word.value.startsWith("-"));
     const isLiteralChdir =
       CHANGE_DIRECTORY_COMMANDS.has(name) && pathWords.length === 1 && !pathWords[0].hasExpansion && pathWords[0].substitutions.length === 0;
-    if (isLiteralChdir) commandCwd = path.resolve(commandCwd, toNativePath(pathWords[0].value.replace(HOME_TOKEN, HOME_PATH)));
+    if (PUSH_DIRECTORY_COMMANDS.has(name)) directoryStack.push(commandCwd);
+    if (POP_DIRECTORY_COMMANDS.has(name)) commandCwd = directoryStack.pop() ?? cwd;
+    else if (CHANGE_DIRECTORY_COMMANDS.has(name) && args.includes("-")) commandCwd = cwd;
+    else if (isLiteralChdir) commandCwd = path.resolve(commandCwd, toNativePath(pathWords[0].value.replace(HOME_TOKEN, HOME_PATH)));
     const nested = [...command.words, ...command.redirects.map((redirect) => redirect.target)]
       .flatMap((word) => word.substitutions.map((inner) => ({ text: inner, dialect })))
       .concat(wrappedPayload(name, args) ?? []);

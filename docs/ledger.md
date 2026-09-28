@@ -169,5 +169,10 @@ Recorded as they happen, in the shape: what was wrong, what was checked, what is
   `grep -rn KEY .` and `docker compose config`. Template: no-nested-ternary on, one tested note guard
   shared by create and read, stylelint is gate step 4, five unused dev dependencies removed. Rules: the
   nested-ternary example's directive sits directly above the expression.
+- Pass 9: hooks clean (first of two). Optional cd scoping (pushd stack, subshell restore, cd -) and
+  non-printing commands (stat, sums, mv, editors, ssh-keygen, --secret-file, :(exclude)) applied; corpus
+  1662 tests. Rules and template not clean: areEqualInOrder called two different Sets equal and
+  overflowed on cycles (now the cycle-safe walk, tests fail on the old code); breakpoint variables
+  renamed to $snake_case.
 - Phase 7 item: pnpm warns of an unmet peer from eslint-plugin-unused-imports@4.4.1 (it pulls
   @typescript-eslint/eslint-plugin@7, which wants ESLint 8); not caused by the removals.

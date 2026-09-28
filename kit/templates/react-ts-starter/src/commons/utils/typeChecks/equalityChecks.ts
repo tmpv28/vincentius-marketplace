@@ -7,6 +7,13 @@ import { isArray, isObject, isPlainObject } from "./isSpecificType";
 // real difference it still reports one.
 type SeenPairsType = WeakMap<object, WeakSet<object>>;
 
+// One walk serves both comparisons, so the cycle guard and the non-plain-object rule cannot drift
+// apart between them; only the array step reads the order flag.
+interface EqualityWalkType {
+  seenPairs: SeenPairsType;
+  isOrderSignificant: boolean;
+}
+
 const hasSeenPair = (seenPairs: SeenPairsType, valueA: object, valueB: object): boolean =>
   seenPairs.get(valueA)?.has(valueB) === true;
 
@@ -33,7 +40,9 @@ const normalizeDates = (value: any) => {
   return value;
 };
 
-function areEqualWithSeenPairs(valueA: any, valueB: any, seenPairs: SeenPairsType): boolean {
+function areEqualWithSeenPairs(valueA: any, valueB: any, equalityWalk: EqualityWalkType): boolean {
+  const { seenPairs, isOrderSignificant } = equalityWalk;
+
   const normalizedA = normalizeDates(valueA);
   const normalizedB = normalizeDates(valueB);
 
@@ -52,14 +61,19 @@ function areEqualWithSeenPairs(valueA: any, valueB: any, seenPairs: SeenPairsTyp
 
   // 4. Arrays compare order-agnostically, as a multiset, and each pairing recurses through this
   // same function. Serializing the entries instead would skip date normalization and would call
-  // two different Sets or Errors equal.
+  // two different Sets or Errors equal. When order is significant, position for position.
   if (isArray(normalizedA) && isArray(normalizedB)) {
     if (normalizedA.length !== normalizedB.length) return false;
+
+    if (isOrderSignificant)
+      return normalizedA.every((entryA, index) =>
+        areEqualWithSeenPairs(entryA, normalizedB[index], equalityWalk)
+      );
 
     const unmatchedEntries = [...normalizedB];
     return normalizedA.every((entryA) => {
       const matchIndex = unmatchedEntries.findIndex((entryB) =>
-        areEqualWithSeenPairs(entryA, entryB, seenPairs)
+        areEqualWithSeenPairs(entryA, entryB, equalityWalk)
       );
       if (matchIndex === -1) return false;
       unmatchedEntries.splice(matchIndex, 1);
@@ -81,7 +95,8 @@ function areEqualWithSeenPairs(valueA: any, valueB: any, seenPairs: SeenPairsTyp
     if (keysA.length !== keysB.length) return false;
 
     return keysA.every(
-      (key) => keysB.includes(key) && areEqualWithSeenPairs(objectA[key], objectB[key], seenPairs)
+      (key) =>
+        keysB.includes(key) && areEqualWithSeenPairs(objectA[key], objectB[key], equalityWalk)
     );
   }
 
@@ -98,7 +113,10 @@ function areEqualWithSeenPairs(valueA: any, valueB: any, seenPairs: SeenPairsTyp
  * - Terminates on cyclic graphs.
  */
 export function areEqual(valueA: any, valueB: any): boolean {
-  return areEqualWithSeenPairs(valueA, valueB, new WeakMap<object, WeakSet<object>>());
+  return areEqualWithSeenPairs(valueA, valueB, {
+    seenPairs: new WeakMap<object, WeakSet<object>>(),
+    isOrderSignificant: false
+  });
 }
 
 export function areNotEqual(valueA: any, valueB: any): boolean {
@@ -110,21 +128,8 @@ export function areNotEqual(valueA: any, valueB: any): boolean {
  * to anything the user can reorder, where a move IS the change.
  */
 export function areEqualInOrder(valueA: any, valueB: any): boolean {
-  if (isArray(valueA) && isArray(valueB)) {
-    if (valueA.length !== valueB.length) return false;
-    return valueA.every((entry, index) => areEqualInOrder(entry, valueB[index]));
-  }
-
-  if (isObject(valueA) && isObject(valueB)) {
-    const objectA: Record<string, any> = valueA;
-    const objectB: Record<string, any> = valueB;
-
-    const keysA = Object.keys(objectA);
-    const keysB = Object.keys(objectB);
-    if (keysA.length !== keysB.length) return false;
-
-    return keysA.every((key) => keysB.includes(key) && areEqualInOrder(objectA[key], objectB[key]));
-  }
-
-  return areEqual(valueA, valueB);
+  return areEqualWithSeenPairs(valueA, valueB, {
+    seenPairs: new WeakMap<object, WeakSet<object>>(),
+    isOrderSignificant: true
+  });
 }

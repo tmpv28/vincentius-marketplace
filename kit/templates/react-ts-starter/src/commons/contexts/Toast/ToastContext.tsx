@@ -17,16 +17,21 @@ const ToastContext: React.FC<GenericProviderType> = ({ children }: GenericProvid
   const [toasts, setToasts] = useState<ToastDetailsType[]>(EMPTY_ARRAY);
 
   // Timeout ids live on a ref so scheduling an auto-dismiss never changes a callback identity,
-  // which is what keeps the actions context effectively immutable.
-  const autoCloseTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // which is what keeps the actions context effectively immutable. Keyed by toast id, so each
+  // entry leaves when its toast does and the map never outgrows the stack on screen.
+  const autoCloseTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   //-----------
 
   const removeToast = useCallback((toastId: string) => {
+    clearTimeout(autoCloseTimeoutsRef.current.get(toastId));
+    autoCloseTimeoutsRef.current.delete(toastId);
     setToasts((prevToasts) => prevToasts.filter((toastInstance) => toastInstance.id !== toastId));
   }, []);
 
   const clearAllToasts = useCallback(() => {
+    autoCloseTimeoutsRef.current.forEach((timeoutInstance) => clearTimeout(timeoutInstance));
+    autoCloseTimeoutsRef.current.clear();
     setToasts((prevToasts) => (isNullOrEmpty(prevToasts) ? prevToasts : EMPTY_ARRAY));
   }, []);
 
@@ -47,7 +52,10 @@ const ToastContext: React.FC<GenericProviderType> = ({ children }: GenericProvid
       // || rather than ??, on purpose: a delay of 0 would dismiss the toast before it is seen, so
       // 0 falls back to the default exactly like an absent delay.
       const treatedDelay = newToast.autoCloseDelay || toastDefaultDelay;
-      autoCloseTimeoutsRef.current.push(setTimeout(() => removeToast(newToast.id), treatedDelay));
+      autoCloseTimeoutsRef.current.set(
+        newToast.id,
+        setTimeout(() => removeToast(newToast.id), treatedDelay)
+      );
     },
     [removeToast]
   );

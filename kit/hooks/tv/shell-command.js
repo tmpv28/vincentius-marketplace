@@ -243,9 +243,11 @@ const lexCommand = (text, dialect = "posix") => {
 // Groups tokens into simple commands: { words, redirects, pipedFrom, openedBy }, where pipedFrom is
 // the command whose output this one reads through a pipe, and openedBy is the operator before it
 // ("(" for Get-Content ('x'), "|" for a pipe), or null for the first command.
+// groupDepth counts the ( ) groups a command sits inside, so a subshell's cd can be undone after it.
 const splitCommands = (tokens) => {
   const commands = [];
-  const newCommand = (pipedFrom, openedBy) => ({ words: [], redirects: [], pipedFrom, openedBy });
+  let groupDepth = 0;
+  const newCommand = (pipedFrom, openedBy) => ({ words: [], redirects: [], pipedFrom, openedBy, groupDepth });
   let current = newCommand(null, null);
   let pendingRedirect = null;
   for (const token of tokens) {
@@ -257,6 +259,8 @@ const splitCommands = (tokens) => {
     else {
       const isEmpty = current.words.length === 0 && current.redirects.length === 0;
       if (!isEmpty) commands.push(current);
+      if (token.value === "(") groupDepth++;
+      if (token.value === ")") groupDepth = Math.max(groupDepth - 1, 0);
       current = newCommand(token.value === "|" && !isEmpty ? current : null, token.value);
       pendingRedirect = null;
     }
