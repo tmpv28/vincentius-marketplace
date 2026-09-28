@@ -19,10 +19,15 @@
     gap: 4px;
     padding: 12px 16px;
 
+    color: inherit;
     background-color: $color_surface;
+    border: none;
     border-left: 4px solid $color_gray;
     border-radius: 4px;
     box-shadow: 0 8px 24px themeRgba(--color-shadow, 0.55);
+
+    font: inherit;
+    text-align: left;
 
     cursor: pointer;
   }

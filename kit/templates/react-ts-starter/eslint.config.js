@@ -101,9 +101,8 @@ export default typescriptEslint.config(
       "react/react-in-jsx-scope": "off",
       "react/no-unescaped-entities": "off",
 
-      // Four of these came from Airbnb and are kept because each one names a real hazard. The
-      // three below them are inherited from the starter and describe a permissions system this
-      // project does not have; they stay until something here needs the selector budget.
+      // These came from Airbnb and are kept because each one names a real hazard. Project-level
+      // selectors (a typed constant required over a bare literal, TV 10) are added here as needed.
       "no-restricted-syntax": [
         "error",
         {
@@ -125,20 +124,6 @@ export default typescriptEslint.config(
           selector: "WithStatement",
           message:
             "`with` is disallowed in strict mode because it makes code impossible to predict and optimize."
-        },
-        {
-          selector:
-            "CallExpression[callee.name=/^hasPermissionTo(Read|Create|Update|Delete)$/] > Literal.arguments",
-          message: "Pass PERMISSION_KEYS.x, never a bare literal, to hasPermissionTo*."
-        },
-        {
-          selector:
-            "CallExpression[callee.name=/^hasAnyPermissionTo(Read|Create|Update|Delete)$/] ArrayExpression.arguments Literal",
-          message: "Pass PERMISSION_KEYS.x, never a bare literal, to hasAnyPermissionTo*."
-        },
-        {
-          selector: "Identifier[name='LEGACY_PERMISSION_KEYS']",
-          message: "permissionKeys.legacy.ts is deleted; use PERMISSION_KEYS."
         }
       ],
 

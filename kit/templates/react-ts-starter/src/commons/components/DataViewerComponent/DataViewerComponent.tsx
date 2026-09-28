@@ -86,7 +86,7 @@ const DataViewerComponent = <T,>({
               key={`DataViewerCell_${getRowId(rowDataInstance)}_${columnInstance.id}`}
               className={classNames.cell}
             >
-              {columnInstance.renderCell(rowDataInstance)}
+              {columnInstance.renderCell({ rowData: rowDataInstance })}
             </div>
           ))}
 

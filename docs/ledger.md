@@ -157,3 +157,9 @@ Recorded as they happen, in the shape: what was wrong, what was checked, what is
   the corpus. Template: themed colours go through eight role aliases (text on accent fixed dark, 8.96:1);
   delete moved into its own DeleteNote feature; actionsCell classNames key; rules-of-hooks on. Rules:
   a generic component is the plain typed arrow; route guards and inline endpoint guards explained.
+- Pass 7: hooks had no misses, only realistic false denies (monorepo seeds, touch/New-Item, find and
+  Where-Object listings), now allowed; corpus holds the reviewer's 260-command sample (1037 unit tests).
+  Template blocking bug: themeRgba emitted invalid rgba(--x, a) with an alpha, dropping 12 colour
+  declarations; fixed with a compile test. Also: read guard checks every claimed field, toasts are buttons,
+  the staged-snapshot hook fails loudly, and std:check now lints the template's scripts/. Rules:
+  node-tooling loads for the gate scripts; tv-add-feature points Delete at DeleteNote.

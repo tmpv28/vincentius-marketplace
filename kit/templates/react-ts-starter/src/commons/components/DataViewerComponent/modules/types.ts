@@ -3,7 +3,8 @@ import React, { ReactNode } from "react";
 export interface DataViewerColumnDefinitionType<T> {
   id: string;
   label: string;
-  renderCell: (rowData: T) => ReactNode;
+  // Takes a named bag like rowActionsHandler, so adding an argument never reorders a call site.
+  renderCell: (attrbs: { rowData: T }) => ReactNode;
 }
 
 export interface DataViewerComponentType<T> {

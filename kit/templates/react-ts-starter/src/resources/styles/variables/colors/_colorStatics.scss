@@ -54,6 +54,18 @@ any component can take a color by name instead of hardcoding a hex.
 }
 
 @layer utilities {
+  .color_black {
+    color: rgb(var(--color-black)) !important;
+  }
+  .color_light_black {
+    color: rgb(var(--color-light-black)) !important;
+  }
+  .color_dark_gray {
+    color: rgb(var(--color-dark-gray)) !important;
+  }
+  .color_dark_accent {
+    color: rgb(var(--color-dark-accent)) !important;
+  }
   .color_white {
     color: rgb(var(--color-white)) !important;
   }
@@ -87,6 +99,27 @@ any component can take a color by name instead of hardcoding a hex.
   }
   .background_color_accent {
     background-color: rgb(var(--color-accent)) !important;
+  }
+  .background_color_gray {
+    background-color: rgb(var(--color-gray)) !important;
+  }
+  .background_color_light_gray {
+    background-color: rgb(var(--color-light-gray)) !important;
+  }
+  .background_color_white {
+    background-color: rgb(var(--color-white)) !important;
+  }
+  .background_color_dark_accent {
+    background-color: rgb(var(--color-dark-accent)) !important;
+  }
+  .background_color_green {
+    background-color: rgb(var(--color-green)) !important;
+  }
+  .background_color_yellow {
+    background-color: rgb(var(--color-yellow)) !important;
+  }
+  .background_color_red {
+    background-color: rgb(var(--color-red)) !important;
   }
 
   .color_text_primary {

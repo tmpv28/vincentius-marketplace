@@ -7,7 +7,7 @@ import {
 
 export type ApiControllerActionType = {
   name: string;
-  // Present-tense verb used to build the default success/error messages ("add", "update", "delete").
+  // Past participle used to build the default success/error messages ("added", "updated", "deleted").
   verb: string;
 };
 

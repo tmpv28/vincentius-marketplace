@@ -2,12 +2,12 @@ import { execSync } from "child_process";
 import { readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 import chalk from "chalk";
-// eslint-disable-next-line import/extensions
 import { printBanner, ACCENT } from "./branding.js";
 
 // ─── Constants ─────────────────────────────────────────────
 
-const ESLINT_GLOB = "src/**/*.{js,jsx,ts,tsx}";
+// scripts/ is linted too, so the gate's own code is held to the rules it enforces.
+const ESLINT_TARGETS = '"src/**/*.{js,jsx,ts,tsx}" "scripts/**/*.js"';
 // One definition of "a line ESLint emitted for a finding", used by every pass over its output.
 const ISSUE_LINE_PATTERN = /^\s*\d+:\d+\s+(error|warning)\s+/;
 const ERROR_LINE_PATTERN = /^\s*\d+:\d+\s+error\s+/;
@@ -38,42 +38,44 @@ function getFullOutput(result) {
 }
 
 function extractIssueLines(output) {
-  const set = new Set();
+  const issueLines = new Set();
   output.split("\n").forEach((line) => {
     if (ISSUE_LINE_PATTERN.test(line.trim())) {
-      set.add(line.trim());
+      issueLines.add(line.trim());
     }
   });
-  return set;
+  return issueLines;
 }
 
 function deduplicateAndClean(output, seen) {
   const lines = output.split("\n");
   const filtered = [];
-  let i = 0;
+  let lineIndex = 0;
 
-  while (i < lines.length) {
-    const trimmed = lines[i].trim();
+  while (lineIndex < lines.length) {
+    const trimmed = lines[lineIndex].trim();
 
     if (ISSUE_LINE_PATTERN.test(trimmed) && seen.has(trimmed)) {
-      i += 1;
+      lineIndex += 1;
     } else if (/^[✖✗✘]\s+\d+\s+problem/.test(trimmed)) {
-      i += 1;
+      lineIndex += 1;
     } else {
       const isFilePath = /^\S.*\.\w+$/.test(trimmed) && !/^\d+:\d+/.test(trimmed);
       if (isFilePath) {
-        let j = i + 1;
-        while (j < lines.length && /^\s*$/.test(lines[j])) j += 1;
-        const nextHasContent = j < lines.length && /^\s*\d+:\d+/.test(lines[j]);
+        let nextContentIndex = lineIndex + 1;
+        while (nextContentIndex < lines.length && /^\s*$/.test(lines[nextContentIndex]))
+          nextContentIndex += 1;
+        const nextHasContent =
+          nextContentIndex < lines.length && /^\s*\d+:\d+/.test(lines[nextContentIndex]);
         if (!nextHasContent) {
-          i = j;
+          lineIndex = nextContentIndex;
         } else {
-          filtered.push(lines[i]);
-          i += 1;
+          filtered.push(lines[lineIndex]);
+          lineIndex += 1;
         }
       } else {
-        filtered.push(lines[i]);
-        i += 1;
+        filtered.push(lines[lineIndex]);
+        lineIndex += 1;
       }
     }
   }
@@ -114,8 +116,8 @@ function filterTscOutput(tscOutput, seenLocations) {
       // TSC: "src/file.tsx(55,37): error TS1005: ..."
       const tscMatch = line.match(/^(.+?)\((\d+),\d+\):\s+error\s+/);
       if (tscMatch) {
-        const loc = `${tscMatch[1].replace(/\\/g, "/")}:${tscMatch[2]}`;
-        return !seenLocations.has(loc);
+        const errorLocation = `${tscMatch[1].replace(/\\/g, "/")}:${tscMatch[2]}`;
+        return !seenLocations.has(errorLocation);
       }
       return true;
     })
@@ -182,14 +184,14 @@ function printStepHeader(label) {
 }
 
 function collectFiles(dir, list = []) {
-  for (const entry of readdirSync(dir)) {
+  readdirSync(dir).forEach((entry) => {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
       if (entry !== "node_modules") collectFiles(full, list);
     } else {
       list.push(full);
     }
-  }
+  });
   return list;
 }
 
@@ -197,17 +199,17 @@ function checkMergeConflicts() {
   const conflictPattern = /^(<{7}|={7}|>{7})/;
   const conflicts = {};
 
-  for (const filePath of collectFiles("src")) {
+  collectFiles("src").forEach((filePath) => {
     const content = readFileSync(filePath, "utf-8");
     const lines = content.split("\n");
-    lines.forEach((line, i) => {
+    lines.forEach((line, lineIndex) => {
       if (conflictPattern.test(line)) {
         const normalized = filePath.replace(/\\/g, "/");
         if (!conflicts[normalized]) conflicts[normalized] = [];
-        conflicts[normalized].push({ line: String(i + 1), marker: line.trim() });
+        conflicts[normalized].push({ line: String(lineIndex + 1), marker: line.trim() });
       }
     });
-  }
+  });
 
   return Object.keys(conflicts).length > 0 ? conflicts : null;
 }
@@ -319,7 +321,7 @@ if (emDashHits.length > 0) {
 printStepHeader("Formatting & auto-fixing...");
 
 const prettierResult = runCommand("pnpm exec prettier --write --log-level warn . 2>&1");
-const eslintFixResult = runCommand(`pnpm exec eslint --fix "${ESLINT_GLOB}" 2>&1`);
+const eslintFixResult = runCommand(`pnpm exec eslint --fix ${ESLINT_TARGETS} 2>&1`);
 
 const prettierOutput = getFullOutput(prettierResult);
 const eslintFixOutput = getFullOutput(eslintFixResult);
@@ -397,7 +399,7 @@ if (!tscResult.success) {
 console.log("\n");
 printStepHeader("Lint check...");
 
-const eslintResult = runCommand(`pnpm exec eslint "${ESLINT_GLOB}" 2>&1`);
+const eslintResult = runCommand(`pnpm exec eslint ${ESLINT_TARGETS} 2>&1`);
 const eslintRaw = getFullOutput(eslintResult);
 const eslintCleaned = deduplicateAndClean(eslintRaw, allSeen);
 const eslintHasNew = hasActualIssues(eslintCleaned);

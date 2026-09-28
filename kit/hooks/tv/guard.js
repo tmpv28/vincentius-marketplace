@@ -30,10 +30,25 @@ const GLOB = /[*?[{]/;
 
 // Seeding .env.local from the schema (.env, or .env.example and its kin) copies bytes without reading
 // them into context. Matched per simple command, so [ -f .env.local ] || cp ... is a seed, and a read
-// chained after it (&& cat .env.local) is still checked on its own.
+// chained after it (&& cat .env.local) is still checked on its own. Source and destination must share
+// a folder (apps/api/.env.example to apps/api/.env.local), so a seed never lands in another project.
 const SEED_COMMANDS = new Set(["cp", "copy", "copy-item", "cpi"]);
-const SEED_SOURCE = new RegExp(`^(\\./)?\\.env(\\.(${[...SCHEMA_SUFFIXES].join("|")}))?$`, "i");
-const SEED_TARGET = /^(\.\/)?\.env\.local$/i;
+const SEED_SOURCE_NAME = new RegExp(`^\\.env(\\.(${[...SCHEMA_SUFFIXES].join("|")}))?$`, "i");
+
+const folderAndName = (value) => {
+  const normalized = path.posix.normalize(value.replace(/\\/g, "/")).toLowerCase();
+  const slash = normalized.lastIndexOf("/");
+  return slash === -1 ? [".", normalized] : [normalized.slice(0, slash) || "/", normalized.slice(slash + 1)];
+};
+
+// .env.local from any schema; the bare .env (itself a schema, TV 00 #7) only from a suffixed schema.
+const isSeedPair = (source, destination) => {
+  if (typeof source !== "string" || typeof destination !== "string") return false;
+  const [sourceFolder, sourceName] = folderAndName(source);
+  const [destinationFolder, destinationName] = folderAndName(destination);
+  if (sourceFolder !== destinationFolder || !SEED_SOURCE_NAME.test(sourceName)) return false;
+  return destinationName === ".env.local" || (destinationName === ".env" && sourceName !== ".env");
+};
 
 const isEnvTracked = (dir) =>
   spawnSync("git", ["-C", dir, "ls-files", "--error-unmatch", "--", ".env"], { encoding: "utf8", timeout: 5000 }).status === 0;
@@ -125,6 +140,10 @@ const NON_READING_COMMANDS = new Set(["echo", "printf", "write-host", "write-out
 // not checked at all, so test -f ~/.ssh/id_ed25519 and rm -f .env.local pass; a recursive delete of
 // a root or home is still caught by the delete rules, and a redirect is still checked.
 const EXISTENCE_CHECKS = new Set(["test", "[", "[[", "test-path"]);
+// touch and New-Item create a file or its timestamp; they read nothing.
+const CREATE_COMMANDS = new Set(["touch", "new-item", "ni"]);
+// Cmdlets that shape a listing's objects without opening the files behind them.
+const LISTING_CONSUMERS = new Set(["select-object", "select", "where-object", "where", "?", "measure-object", "measure", "sort-object", "sort", "format-table", "ft", "format-list", "fl"]);
 // Listing names reads no content, so even ~/.ssh may be listed; but a listing piped onward or wrapped
 // in ( ) hands those files to something that may read them (gci .env* | Get-Content).
 const LISTING_COMMANDS = new Set(["get-childitem", "gci", "ls", "dir", "get-item", "gi"]);
@@ -298,62 +317,116 @@ const contentValueIndexes = (args) => {
   return [...valueIndexes, ...positionalIndexes.slice(hasNamedPath ? 0 : 1)];
 };
 
-// --env-file (node, tsx, docker compose) and dotenv -e load a file into the process's environment,
-// not into context, whatever the command that takes them.
+// Tools that load an env file into the process they start, with the options that name the file.
+// Their options end at "--" (dotenv, dotenvx) or at the command they run (env-cmd).
+const ENV_LOADERS = new Map([
+  ["dotenv", { fileOptions: ["-e"], isStoppedByCommand: false }],
+  ["dotenv-cli", { fileOptions: ["-e"], isStoppedByCommand: false }],
+  ["dotenvx", { fileOptions: ["-f", "--env-file"], isStoppedByCommand: false }],
+  ["env-cmd", { fileOptions: ["-f", "--file"], isStoppedByCommand: true }]
+]);
+
+// --env-file (node, tsx, docker compose), dotenv -e, dotenvx -f, env-cmd -f and DOTENV_CONFIG_PATH load a
+// file into the process's environment, not into context, whatever the command that takes them.
 const envLoaderIndexes = (values) => {
-  const envFileIndexes = values.flatMap((value, index) =>
-    /^--env-file(-if-exists)?=/.test(value) || /^--env-file(-if-exists)?$/.test(values[index - 1] ?? "") ? [index] : []);
-  const dotenvAt = values.findIndex((value) => /^dotenv(-cli)?$/.test(commandBaseName(value)));
-  if (dotenvAt === -1) return envFileIndexes;
-  // dotenv's own options end at --; an -e after that belongs to the command it runs.
-  const optionsEnd = values.indexOf("--", dotenvAt) === -1 ? values.length : values.indexOf("--", dotenvAt);
-  const dotenvIndexes = values.flatMap((value, index) =>
-    index > dotenvAt && index < optionsEnd && (/^-e=/.test(value) || values[index - 1] === "-e") ? [index] : []);
-  return [...envFileIndexes, ...dotenvIndexes];
+  const indexes = values.flatMap((value, index) =>
+    /^--env-file(-if-exists)?=|^dotenv_config_path=/i.test(value) || /^--env-file(-if-exists)?$/.test(values[index - 1] ?? "") ? [index] : []);
+  const loaderAt = values.findIndex((value) => ENV_LOADERS.has(commandBaseName(value)));
+  if (loaderAt === -1) return indexes;
+  const { fileOptions, isStoppedByCommand } = ENV_LOADERS.get(commandBaseName(values[loaderAt]));
+  for (let index = loaderAt + 1; index < values.length && values[index] !== "--"; index++) {
+    const value = values[index];
+    if (fileOptions.includes(value)) indexes.push(++index);
+    else if (fileOptions.some((option) => value.startsWith(`${option}=`))) indexes.push(index);
+    else if (!value.startsWith("-") && isStoppedByCommand) break;
+  }
+  return indexes;
 };
+
+// git log -- .env.local lists the commits that touched it: history, not content, unless a patch is asked for.
+const isGitHistoryOnly = (values, git) =>
+  git?.subcommand === "log" && !values.slice(git.subcommandIndex + 1).some((value) => /^(-p|-u|--patch|-U\d*|--unified(=.*)?)$/.test(value));
+
+// find with no action lists names; -name/-path values are patterns. With -exec or -delete it acts on them.
+const FIND_ACTIONS = /^-(exec|execdir|ok|okdir|delete|fprint|fprint0|fprintf|fls)$/;
+const findPatternIndexes = (args) =>
+  args.some((word) => FIND_ACTIONS.test(word))
+    ? []
+    : args.flatMap((word, index) => (/^-(i?name|i?path|i?wholename)$/.test(args[index - 1] ?? "") ? [index] : []));
+
+// PowerShell's comparison operators take a pattern or value, not a path: $_.Name -like '.env*'.
+const COMPARISON_OPERATOR = /^-[ci]?(like|notlike|match|notmatch|eq|ne)$/i;
 
 // Words that name no file read into context: grep's pattern and --exclude, the pattern of git grep and
-// Select-String, git log --grep, and an env file loaded into a process. Indexes are into the command's words.
+// Select-String, git log --grep, git log's pathspec, find's name patterns, a comparison's right-hand
+// side, and an env file loaded into a process. Indexes are into the command's words.
 const unreadWordIndexes = (values, name, args, commandIndex, git) => {
   const fromArgs = (indexes, offset) => indexes.map((index) => offset + index);
-  const envLoaded = envLoaderIndexes(values);
-  if (GREP_COMMANDS.has(name)) return [...envLoaded, ...fromArgs([...grepPatternIndexes(args), ...grepExcludeIndexes(args)], commandIndex + 1)];
-  if (name === "select-string" || name === "sls") return [...envLoaded, ...fromArgs(selectStringPatternIndexes(args), commandIndex + 1)];
-  if (git?.subcommand === "grep") return [...envLoaded, ...fromArgs(grepPatternIndexes(values.slice(git.subcommandIndex + 1)), git.subcommandIndex + 1)];
-  if (git) return [...envLoaded, ...values.flatMap((value, index) => (/^--grep=/.test(value) || values[index - 1] === "--grep" ? [index] : []))];
-  return envLoaded;
+  const always = [
+    ...envLoaderIndexes(values),
+    ...values.flatMap((value, index) => (COMPARISON_OPERATOR.test(values[index - 1] ?? "") ? [index] : []))
+  ];
+  if (GREP_COMMANDS.has(name)) return [...always, ...fromArgs([...grepPatternIndexes(args), ...grepExcludeIndexes(args)], commandIndex + 1)];
+  if (name === "select-string" || name === "sls") return [...always, ...fromArgs(selectStringPatternIndexes(args), commandIndex + 1)];
+  if (name === "find") return [...always, ...fromArgs(findPatternIndexes(args), commandIndex + 1)];
+  if (git?.subcommand === "grep") return [...always, ...fromArgs(grepPatternIndexes(values.slice(git.subcommandIndex + 1)), git.subcommandIndex + 1)];
+  if (git) {
+    const pathspecStart = isGitHistoryOnly(values, git) ? values.indexOf("--", git.subcommandIndex) : -1;
+    const pathspec = pathspecStart === -1 ? [] : values.slice(pathspecStart + 1).map((value, offset) => pathspecStart + 1 + offset);
+    return [...always, ...pathspec, ...values.flatMap((value, index) => (/^--grep=/.test(value) || values[index - 1] === "--grep" ? [index] : []))];
+  }
+  return always;
 };
 
-// cp .env.example .env.local, Copy-Item -Path .env.example -Destination .env.local: a schema source
-// and exactly .env.local as the destination, whatever the option order.
-const isSeedCopy = (name, args) => {
-  if (!SEED_COMMANDS.has(name)) return false;
+// PowerShell common parameters that take a value: Copy-Item ... -ErrorAction Stop is still a seed.
+const COMMON_PARAMETERS_WITH_VALUE = /^-(erroraction|warningaction|informationaction|progressaction|errorvariable|warningvariable|informationvariable|outvariable|outbuffer|pipelinevariable|ea|wa|ia|ev|wv|iv|ov|ob|pv)$/i;
+
+// The source and destination a copy or write names: -Path/-LiteralPath/-Destination/-FilePath in any
+// order, or positionally; switches (-Force, -n) and common parameters are skipped.
+const pathOperands = (args) => {
   const named = {};
   const positional = [];
   for (let index = 0; index < args.length; index++) {
-    const word = args[index].replace(/\\/g, "/");
-    const option = /^-(path|literalpath|destination)(?::(.*))?$/i.exec(word);
-    if (option) named[option[1].toLowerCase() === "destination" ? "destination" : "source"] = option[2] ?? args[++index]?.replace(/\\/g, "/");
+    const word = args[index];
+    const option = /^-(path|literalpath|destination|filepath)(?::(.*))?$/i.exec(word);
+    if (option) named[option[1].toLowerCase() === "destination" ? "destination" : "source"] = option[2] ?? args[++index];
+    else if (COMMON_PARAMETERS_WITH_VALUE.test(word)) index++;
     else if (!word.startsWith("-")) positional.push(word);
   }
+  return { named, positional };
+};
+
+// cp .env.example .env.local, Copy-Item -Path .env.example -Destination .env.local -ErrorAction Stop.
+const isSeedCopy = (name, args) => {
+  if (!SEED_COMMANDS.has(name)) return false;
+  const { named, positional } = pathOperands(args);
   const source = named.source ?? positional.shift();
   const destination = named.destination ?? positional.shift();
-  return positional.length === 0 && SEED_SOURCE.test(source ?? "") && SEED_TARGET.test(destination ?? "");
+  return positional.length === 0 && isSeedPair(source, destination);
 };
 
 // cat .env.example > .env.local: the same seed, written as a redirect. The schema's bytes go to the
-// file, never to the terminal, so exactly one source and exactly one redirect to .env.local.
+// file, never to the terminal, so exactly one source and exactly one redirect to the seed.
 const SEED_PRINTERS = new Set(["cat", "type", "get-content", "gc"]);
-const isSeedRedirect = (name, args, redirects) => {
+const printedSeedSource = (name, args) => {
   const sources = args.filter((word) => !word.startsWith("-"));
-  return (
-    SEED_PRINTERS.has(name) && sources.length === 1 && SEED_SOURCE.test(sources[0].replace(/\\/g, "/")) &&
-    redirects.length === 1 && redirects[0].operator === ">" && SEED_TARGET.test(redirects[0].target.value.replace(/\\/g, "/"))
-  );
+  return SEED_PRINTERS.has(name) && sources.length === 1 ? sources[0] : null;
+};
+const isSeedRedirect = (name, args, redirects) =>
+  redirects.length === 1 && redirects[0].operator === ">" && isSeedPair(printedSeedSource(name, args), redirects[0].target.value);
+
+// gc .env.example | Set-Content .env.local: the seed through a pipe, into a writer that names only the file.
+const SEED_PIPE_WRITERS = new Set(["set-content", "sc", "out-file"]);
+const isSeedPipe = (name, args, pipedFrom) => {
+  if (!SEED_PIPE_WRITERS.has(name) || !pipedFrom || args.some((word) => /^-va(l(u(e)?)?)?(:|$)/i.test(word))) return false;
+  const source = stripCommandPrefix(pipedFrom.words.map((word) => word.value));
+  const { named, positional } = pathOperands(args);
+  const destination = named.source ?? positional.shift();
+  return positional.length === 0 && isSeedPair(printedSeedSource(source.name, source.args), destination);
 };
 
-// pipeConsumer is the command this one pipes into, or null.
-const findSecretInCommand = (command, masked, cwd, dialect, pipeConsumer) => {
+// downstream is every command this one pipes into, in order: [] when nothing reads its output.
+const findSecretInCommand = (command, masked, cwd, dialect, downstream) => {
   const values = command.words.map((word) => word.value);
   // $msg = @'...'@ in PowerShell stores prose; the command that later uses $msg is checked on its own.
   // A bare name ($f = '.env.local') is still checked, because it is about to be used as a path.
@@ -364,7 +437,8 @@ const findSecretInCommand = (command, masked, cwd, dialect, pipeConsumer) => {
 
   const { name, args, commandIndex } = stripCommandPrefix(values);
   const git = parseGitInvocation(values);
-  const consumerName = pipeConsumer ? stripCommandPrefix(pipeConsumer.words.map((word) => word.value)).name : null;
+  const downstreamNames = downstream.map((consumer) => stripCommandPrefix(consumer.words.map((word) => word.value)).name);
+  const consumerName = downstreamNames[0] ?? null;
   const isWrapped = command.openedBy === "(";
   // A PowerShell statement that is only a string ('.env.local' >> .gitignore) writes that text, like
   // echo. Not as an argument (Get-Content ('.env.local')), not after the call operator (& 'cat.exe'
@@ -372,8 +446,9 @@ const findSecretInCommand = (command, masked, cwd, dialect, pipeConsumer) => {
   const isLiteralOutput =
     dialect === "windows" && command.words[commandIndex]?.isQuoted === true && !isWrapped && command.openedBy !== "&" &&
     (consumerName === null || PIPE_WRITERS.has(consumerName));
-  const isListingOnly = LISTING_COMMANDS.has(name) && !isWrapped && pipeConsumer === null;
-  const isTouchOnly = isListingOnly || EXISTENCE_CHECKS.has(name) || DELETE_COMMANDS.has(name);
+  // Get-Item .env.local | Select-Object Length is still a listing; | Get-Content is a read.
+  const isListingOnly = LISTING_COMMANDS.has(name) && !isWrapped && downstreamNames.every((consumer) => LISTING_CONSUMERS.has(consumer));
+  const isTouchOnly = isListingOnly || EXISTENCE_CHECKS.has(name) || CREATE_COMMANDS.has(name) || DELETE_COMMANDS.has(name);
   const isNonReading = NON_READING_COMMANDS.has(name) || isLiteralOutput || (git !== null && NON_READING_GIT.has(git.subcommand));
   const unreadIndexes = unreadWordIndexes(values, name, args, commandIndex, git);
   const contentIndexes = CONTENT_WRITERS.has(name) ? contentValueIndexes(args).map((index) => commandIndex + 1 + index) : [];
@@ -417,6 +492,11 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
   const quotedData = commands.flatMap((command) => command.words.filter((word) => word.isQuoted && word.substitutions.length === 0));
   if (PIPE_TO_SHELL.some((pattern) => pattern.test(maskWords(text, new Set([...masked, ...quotedData]))))) return "pipe-to-shell";
   const pipeConsumers = new Map(commands.filter((command) => command.pipedFrom).map((command) => [command.pipedFrom, command]));
+  const downstreamOf = (command) => {
+    const chain = [];
+    for (let consumer = pipeConsumers.get(command); consumer; consumer = pipeConsumers.get(consumer)) chain.push(consumer);
+    return chain;
+  };
 
   for (const command of commands) {
     const values = command.words.map((word) => word.value);
@@ -433,8 +513,8 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
     if (isCatastrophicDelete(name, args) || isCatastrophicFind(name, args) || isCatastrophicXargs(name, args, command.pipedFrom) || isPipedRemove)
       return "recursive delete on root/home";
     if (isForcePush(values)) return "force push";
-    const isSeed = isSeedCopy(name, args) || isSeedRedirect(name, args, command.redirects);
-    const secret = isSeed ? null : findSecretInCommand(command, masked, cwd, dialect, pipeConsumers.get(command) ?? null);
+    const isSeed = isSeedCopy(name, args) || isSeedRedirect(name, args, command.redirects) || isSeedPipe(name, args, command.pipedFrom);
+    const secret = isSeed ? null : findSecretInCommand(command, masked, cwd, dialect, downstreamOf(command));
     if (secret) return `secret file ${secret}`;
   }
 

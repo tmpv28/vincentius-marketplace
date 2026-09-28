@@ -1,13 +1,14 @@
 import { useCallback, useMemo } from "react";
 
 import { ResponseDataContaining } from "../../../../commons/systems/responseObjectSystem/types";
-import { isArray } from "../../../../commons/utils/typeChecks/isSpecificType";
 
 import useReadController from "../../../configs/controllers/CRUD/useReadController";
 import { DefaultEndpointHandlingType } from "../../../configs/modules/sharedTypes";
 
 import { NOTES_API_URL } from "../endpointsDefinition";
 import { API_NoteType } from "../entityTypes";
+
+import { isReadNotesResponseData } from "./modules/readNotesGuards";
 
 export const useReadNotes = ({ entityName = "notes" }: DefaultEndpointHandlingType = {}) => {
   const { readInstance, isLoading } = useReadController();
@@ -21,10 +22,7 @@ export const useReadNotes = ({ entityName = "notes" }: DefaultEndpointHandlingTy
       readInstance<ResponseDataContaining<{ data: API_NoteType[] }>>({
         entityName,
         configs: { url: NOTES_API_URL.list, method: "GET" },
-        responseDataTypeGuard: (
-          responseData
-        ): responseData is ResponseDataContaining<{ data: API_NoteType[] }> =>
-          isArray(responseData?.data)
+        responseDataTypeGuard: isReadNotesResponseData
       }),
     [readInstance, entityName]
   );

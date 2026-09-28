@@ -5,6 +5,7 @@ import {
   useToastStateContext
 } from "../../contexts/Toast/modules/ToastContext.context";
 import { isNullOrEmpty } from "../../utils/typeChecks/isNullOrEmpty";
+import { ToastStateTypes } from "../../contexts/Toast/modules/types";
 import { EMPTY_OBJ } from "../../constants/shared";
 
 import { ToastsControllerComponentType } from "./modules/types";
@@ -20,7 +21,9 @@ const ToastsControllerComponent: React.FC<ToastsControllerComponentType> = ({
 
   const classNames = {
     rootContainer: `ToastsControllerComponent ${customClassNames.rootContainer || ""}`,
-    toast: `ToastsControllerComponent__toast ${customClassNames.toast || ""}`,
+    // A function of the type, because the modifier differs per toast in the same stack.
+    toast: (toastType: ToastStateTypes) =>
+      `ToastsControllerComponent__toast ToastsControllerComponent__toast--${toastType} ${customClassNames.toast || ""}`,
     title: `ToastsControllerComponent__title ${customClassNames.title || ""}`,
     msg: `ToastsControllerComponent__msg ${customClassNames.msg || ""}`
   };
@@ -32,9 +35,10 @@ const ToastsControllerComponent: React.FC<ToastsControllerComponentType> = ({
   return (
     <div className={classNames.rootContainer} style={styleConfigs}>
       {toasts.map((toastInstance) => (
-        <div
+        <button
           key={`Toast_${toastInstance.id}`}
-          className={`${classNames.toast} ToastsControllerComponent__toast--${toastInstance.type}`}
+          type="button"
+          className={classNames.toast(toastInstance.type)}
           onClick={() => removeToast(toastInstance.id)}
         >
           <span className={classNames.title}>{toastInstance.title}</span>
@@ -42,7 +46,7 @@ const ToastsControllerComponent: React.FC<ToastsControllerComponentType> = ({
           {!isNullOrEmpty(toastInstance.msg) && (
             <span className={classNames.msg}>{toastInstance.msg}</span>
           )}
-        </div>
+        </button>
       ))}
     </div>
   );

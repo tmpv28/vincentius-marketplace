@@ -18,7 +18,7 @@ carries the label, so a citation still finds its text.
 | styles | `**/*.scss`, `**/*.css` |
 | scss | `**/*.scss`, `**/.stylelintrc*`, `**/stylelint.config.*` |
 | testing | `**/*.test.*`, `**/*.spec.*`, `**/vite.config.*`, `**/vitest.config.*`, `**/vitest.setup.*` |
-| node-tooling | `**/package.json`, `**/pnpm-workspace.yaml`, `**/eslint.config.*`, `**/.prettierrc*`, `**/prettier.config.*`, `**/.stylelintrc*`, `**/stylelint.config.*`, `**/.lintstagedrc*`, `**/.husky/**`, `**/tsconfig*.json`, `**/vite.config.*` |
+| node-tooling | `**/package.json`, `**/pnpm-workspace.yaml`, `**/eslint.config.*`, `**/.prettierrc*`, `**/prettier.config.*`, `**/.stylelintrc*`, `**/stylelint.config.*`, `**/.lintstagedrc*`, `**/.husky/**`, `**/tsconfig*.json`, `**/vite.config.*`, `**/scripts/standardCheck.*`, `**/scripts/checkStagedSnapshot.*` |
 
 | Chapter | Packs |
 | --- | --- |

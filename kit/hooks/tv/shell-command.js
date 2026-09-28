@@ -5,6 +5,7 @@
 
 const HEREDOC_OPERATOR = /(?<!<)<<(-?)[ \t]*(["']?)([A-Za-z_][\w-]*)\2/g;
 const HEREDOC_MARKER = /^__HEREDOC_(\d+)__$/;
+const ARITHMETIC_BRACKET = /\$\(\(|\)\)/g;
 
 // Longest first, so ">>" is never read as two ">".
 const OPERATORS = ["&>>", "<<<", "&&", "||", "|&", ">>", "<<", "&>", ">&", "\n", ";", "&", "|", ">", "<", "(", ")"];
@@ -43,19 +44,30 @@ const extractHeredocs = (command) => {
   const heredocs = [];
   let text = "";
   let cursor = 0;
+  // Inside $(( ... )), << is a shift: $((1 << n)) opens no heredoc. The open count is carried forward
+  // from match to match, so the text is scanned once, not once per heredoc.
+  let openArithmetic = 0;
+  let countedTo = 0;
+  const countArithmeticUpTo = (end) => {
+    ARITHMETIC_BRACKET.lastIndex = countedTo;
+    for (let bracket = ARITHMETIC_BRACKET.exec(command); bracket && bracket.index < end; bracket = ARITHMETIC_BRACKET.exec(command))
+      openArithmetic += bracket[0] === "))" ? -1 : 1;
+    countedTo = end;
+  };
   HEREDOC_OPERATOR.lastIndex = 0;
   for (let match = HEREDOC_OPERATOR.exec(command); match; match = HEREDOC_OPERATOR.exec(command)) {
-    // Inside $(( ... )), << is a shift: $((1 << n)) opens no heredoc.
-    const before = command.slice(0, match.index);
-    if ((before.match(/\$\(\(/g) ?? []).length > (before.match(/\)\)/g) ?? []).length) continue;
+    countArithmeticUpTo(match.index);
+    if (openArithmetic > 0) continue;
     const operatorEnd = match.index + match[0].length;
     const lineEnd = command.indexOf("\n", operatorEnd);
     if (lineEnd === -1) break;
     const delimiter = match[3];
     // The whole line must be the delimiter, so "EOF marks the end" inside a body does not end it;
-    // only <<- lets tabs indent it.
-    const terminator = new RegExp(`^${match[1] === "-" ? "\\t*" : ""}${delimiter}[ \\t]*\\r?$`, "m").exec(command.slice(lineEnd + 1));
-    const bodyEnd = terminator ? lineEnd + 1 + terminator.index : command.length;
+    // only <<- lets tabs indent it. Searched in place from the body's start, never on a copy.
+    const terminatorPattern = new RegExp(`^${match[1] === "-" ? "\\t*" : ""}${delimiter}[ \\t]*\\r?$`, "gm");
+    terminatorPattern.lastIndex = lineEnd + 1;
+    const terminator = terminatorPattern.exec(command);
+    const bodyEnd = terminator ? terminator.index : command.length;
     heredocs.push({
       delimiter,
       body: command.slice(lineEnd + 1, bodyEnd).replace(/\n$/, ""),
@@ -63,6 +75,8 @@ const extractHeredocs = (command) => {
     });
     text += `${command.slice(cursor, match.index)}<<__HEREDOC_${heredocs.length - 1}__${command.slice(operatorEnd, lineEnd + 1)}`;
     cursor = terminator ? bodyEnd + terminator[0].length : command.length;
+    // A body is text, not shell: its brackets do not count toward $(( ... )).
+    countedTo = cursor;
     HEREDOC_OPERATOR.lastIndex = cursor;
   }
   return { text: text + command.slice(cursor), heredocs };

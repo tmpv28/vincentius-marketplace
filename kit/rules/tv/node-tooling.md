@@ -11,6 +11,8 @@ paths:
   - "**/.husky/**"
   - "**/tsconfig*.json"
   - "**/vite.config.*"
+  - "**/scripts/standardCheck.*"
+  - "**/scripts/checkStagedSnapshot.*"
 ---
 
 # TV-STANDARD: Node tooling

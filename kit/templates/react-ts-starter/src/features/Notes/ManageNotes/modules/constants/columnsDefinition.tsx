@@ -7,25 +7,25 @@ export const MANAGE_NOTES_COLUMNS_DEFINITION: NoteColumnDefinitionType[] = [
   {
     id: "title",
     label: "Title",
-    renderCell: (noteInstance) => (
+    renderCell: ({ rowData }) => (
       <span className="ManageNotesFeature__cellText ManageNotesFeature__cellText--title">
-        {noteInstance.title}
+        {rowData.title}
       </span>
     )
   },
   {
     id: "body",
     label: "Body",
-    renderCell: (noteInstance) => (
-      <span className="ManageNotesFeature__cellText">{noteInstance.body}</span>
+    renderCell: ({ rowData }) => (
+      <span className="ManageNotesFeature__cellText">{rowData.body}</span>
     )
   },
   {
     id: "createdAt",
     label: "Created",
-    renderCell: (noteInstance) => (
+    renderCell: ({ rowData }) => (
       <span className="ManageNotesFeature__cellText ManageNotesFeature__cellText--muted">
-        {formatDateForDisplay(noteInstance.createdAt)}
+        {formatDateForDisplay(rowData.createdAt)}
       </span>
     )
   }

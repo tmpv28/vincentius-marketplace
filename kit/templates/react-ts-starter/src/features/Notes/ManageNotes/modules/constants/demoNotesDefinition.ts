@@ -6,7 +6,7 @@ export const MANAGE_NOTES_DEMO_SEED_DEFINITION: API_NoteType[] = [
   {
     id: "Note_seed_1",
     title: "Read the standard before writing anything",
-    body: "AGENTS.md first, then standards/ in full. The rules interlock.",
+    body: "The core first, then each pack in full as its files are read (TV core, Mandatory load). The rules interlock.",
     createdAt: "2026-01-12T09:30:00.000Z"
   },
   {

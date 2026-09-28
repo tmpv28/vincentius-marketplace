@@ -29,7 +29,18 @@ const runGit = (args) => spawnSync("git", args, { encoding: "buffer", windowsHid
 
 const getStagedPaths = () => {
   const result = runGit(["diff", "--cached", "--name-only", "--diff-filter=d"]);
-  if (result.status !== 0) return [];
+
+  // An empty list would read as "nothing staged, nothing to check" and let the commit through, so
+  // a git that cannot answer stops the commit instead.
+  if (result.error || result.status !== 0) {
+    const gitOutput = result.error?.message ?? result.stderr.toString("utf8").trim();
+    console.log("");
+    console.log("  Commit blocked. Could not list the staged files, so nothing was checked:");
+    console.log("");
+    console.log(`    ${gitOutput || `git exited with status ${result.status}`}`);
+    console.log("");
+    process.exit(1);
+  }
 
   return result.stdout
     .toString("utf8")

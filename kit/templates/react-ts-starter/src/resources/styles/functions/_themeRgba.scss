@@ -10,12 +10,11 @@
     $normalized: "var(#{$color})";
   }
 
-  // Extract value inside var(...)
-  $varValue: string.slice($normalized, 5, -2); // removes "var(" and ")"
-
   @if $alpha == 1 {
     @return string.unquote("rgb(#{$normalized})");
   }
 
-  @return string.unquote("rgba(#{$varValue}, #{$alpha})");
+  // The var() has to survive into the output: a bare rgba(--x, a) is invalid CSS, and the browser
+  // drops the whole declaration without a warning.
+  @return string.unquote("rgba(#{$normalized}, #{$alpha})");
 }
