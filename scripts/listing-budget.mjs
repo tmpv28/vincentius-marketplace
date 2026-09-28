@@ -4,10 +4,11 @@
 // Claude Code's /skill-doctor is the authority; this is the check a script can run unattended.
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
+
+import { configDir } from "./files.mjs";
 
 const args = process.argv.slice(2);
-const CONFIG = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
+const CONFIG = configDir();
 const contextTokens = Number(args[args.indexOf("--context") + 1]) || 1000000;
 const readSettings = () => {
   const path = join(CONFIG, "settings.json");
@@ -38,7 +39,7 @@ const frontmatter = (file) => {
     return continuation.join(" ").trim();
   };
   return { name: field("name"), description: field("description"), whenToUse: field("when_to_use"),
-    manual: /^disable-model-invocation:\s*true/m.test(match[1]) };
+    isManual: /^disable-model-invocation:\s*true/m.test(match[1]) };
 };
 
 const skillFiles = (dir) => {
@@ -67,10 +68,10 @@ if (existsSync(cache)) for (const market of readdirSync(cache)) for (const plugi
 const seen = new Set();
 const rows = [];
 for (const { file } of sources) {
-  const fm = frontmatter(file);
-  if (!fm || fm.manual || seen.has(fm.name)) continue;
-  seen.add(fm.name);
-  rows.push({ name: fm.name, chars: fm.name.length + Math.min(fm.description.length + fm.whenToUse.length, PER_SKILL_CAP) });
+  const skill = frontmatter(file);
+  if (!skill || skill.isManual || seen.has(skill.name)) continue;
+  seen.add(skill.name);
+  rows.push({ name: skill.name, chars: skill.name.length + Math.min(skill.description.length + skill.whenToUse.length, PER_SKILL_CAP) });
 }
 const totalChars = rows.reduce((sum, r) => sum + r.chars, 0);
 const budgetChars = Math.round(contextTokens * fraction * 4);

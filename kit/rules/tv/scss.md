@@ -1,13 +1,15 @@
 ---
 paths:
   - "**/*.scss"
+  - "**/.stylelintrc*"
+  - "**/stylelint.config.*"
 ---
 
 # TV-STANDARD: SCSS
 
 TV-PACK: scss
 
-Loaded in full because an SCSS file was read. "TV NN" names the original chapter; docs/rules.md maps each chapter to its packs.
+Loaded in full because an SCSS file was read. "TV NN" names the original chapter; the chapter map at the end of the core names the packs of each chapter.
 Precedence: a pack beats the core where it is more specific. A collision means one side is stale: report it, do not work around it.
 
 ---

@@ -3,19 +3,18 @@
 import { readdirSync, readFileSync, lstatSync, existsSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
 import { walk } from "./files.mjs";
+import { ROOT } from "./vendor-lib.mjs";
 import { checkNotices } from "./notices.mjs";
+import { checkMap } from "./rules-map.mjs";
 
 // The hooks are CommonJS; the em-dash notice and this gate share one list of code-adjacent files.
-const { CODE_ADJACENT_FILE } = createRequire(import.meta.url)("../kit/hooks/tv/code-extensions.js");
+const { CODE_ADJACENT_FILE, EM_DASH } = createRequire(import.meta.url)("../kit/hooks/tv/code-extensions.js");
 
-const ROOT = fileURLToPath(new URL("..", import.meta.url));
 // templates is skipped because the template carries its own std:check, which judges it by its own rules.
 const SKIP_DIRS = new Set([".git", "node_modules", "coverage", "standard", "vendor", ".tmp", "templates"]);
-const EM_DASH = String.fromCharCode(0x2014);
 
 const bold = (text) => `\x1b[1m${text}\x1b[22m`;
 const red = (text) => `\x1b[31m${text}\x1b[39m`;
@@ -31,15 +30,16 @@ for (const file of files.filter((f) => [".js", ".mjs", ".cjs"].includes(extname(
   else if (result.status !== 0) failures.push(`syntax: ${relative(ROOT, file)}\n${result.stderr.trim()}`);
 }
 
-// ─── Step 2: em-dashes in code-adjacent text (00 #5) ─────────
+// ─── Step 2: em-dashes in code-adjacent text (TV 00 #5) ──────
 for (const file of files.filter((f) => CODE_ADJACENT_FILE.test(f))) {
   readFileSync(file, "utf8").split("\n").forEach((line, index) => {
     if (line.includes(EM_DASH)) failures.push(`em-dash: ${relative(ROOT, file)}:${index + 1}`);
   });
 }
 
-// ─── Step 3: third-party notices match vendor.json ────────────
+// ─── Step 3: generated maps match their sources ───────────────
 for (const problem of checkNotices()) failures.push(`notices: ${problem}`);
+for (const problem of checkMap()) failures.push(`rules map: ${problem}`);
 
 // ─── Step 4: tests ──────────────────────────────────────────
 for (const suite of ["tests/unit", "tests/install"]) {

@@ -41,7 +41,9 @@ const extractHeredocs = (command) => {
     const lineEnd = command.indexOf("\n", operatorEnd);
     if (lineEnd === -1) break;
     const delimiter = match[3];
-    const terminator = new RegExp(`^[ \\t]*${delimiter}\\b`, "m").exec(command.slice(lineEnd + 1));
+    // The whole line must be the delimiter, so "EOF marks the end" inside a body does not end it;
+    // only <<- lets tabs indent it.
+    const terminator = new RegExp(`^${match[1] === "-" ? "\\t*" : ""}${delimiter}[ \\t]*\\r?$`, "m").exec(command.slice(lineEnd + 1));
     const bodyEnd = terminator ? lineEnd + 1 + terminator.index : command.length;
     heredocs.push({
       delimiter,
@@ -58,7 +60,7 @@ const extractHeredocs = (command) => {
 // ─── Words ──────────────────────────────────────────────────
 
 // Each word carries its unquoted value, its span in `text`, the command substitutions inside it
-// ($(...), backticks, <(...)), and whether anything in it expands at run time.
+// ($(...), backticks, <(...)), whether anything in it expands at run time, and whether any of it was quoted.
 const lexCommand = (text, dialect = "posix") => {
   const isPosix = dialect === "posix";
   const tokens = [];
@@ -66,7 +68,7 @@ const lexCommand = (text, dialect = "posix") => {
   let index = 0;
 
   const openWord = (start) => {
-    if (!word) word = { type: "word", value: "", start, end: start, substitutions: [], hasExpansion: false };
+    if (!word) word = { type: "word", value: "", start, end: start, substitutions: [], hasExpansion: false, isQuoted: false };
     return word;
   };
   const closeWord = (end) => {
@@ -106,6 +108,7 @@ const lexCommand = (text, dialect = "posix") => {
   };
   const readDoubleQuoted = (start) => {
     const current = openWord(start);
+    current.isQuoted = true;
     let cursor = start + 1;
     while (cursor < text.length && text[cursor] !== '"') {
       const char = text[cursor];
@@ -127,13 +130,34 @@ const lexCommand = (text, dialect = "posix") => {
     return cursor + 1;
   };
 
+  // PowerShell's @'...'@ and @"..."@: the body runs from the line after the opener to a line
+  // starting with the closer. Returns the index after the closer, or -1 when this is not one.
+  const readHereString = (start) => {
+    const quote = text[start + 1];
+    const opener = /^\r?\n/.exec(text.slice(start + 2));
+    if (!opener) return -1;
+    const bodyStart = start + 2 + opener[0].length;
+    const closer = new RegExp(`\\r?\\n${quote}@`).exec(text.slice(bodyStart));
+    if (!closer) return -1;
+    const current = openWord(start);
+    const body = text.slice(bodyStart, bodyStart + closer.index);
+    current.value += body;
+    current.isQuoted = true;
+    if (quote === '"' && /\$[A-Za-z_{(]/.test(body)) current.hasExpansion = true;
+    return bodyStart + closer.index + closer[0].length;
+  };
+
   while (index < text.length) {
     const char = text[index];
     const next = text[index + 1] ?? "";
-    if (char === "'") {
+    const hereStringEnd = !isPosix && !word && char === "@" && (next === "'" || next === '"') ? readHereString(index) : -1;
+    if (hereStringEnd !== -1) index = hereStringEnd;
+    else if (char === "'") {
       const close = text.indexOf("'", index + 1);
       const stop = close === -1 ? text.length : close;
-      openWord(index).value += text.slice(index + 1, stop);
+      const current = openWord(index);
+      current.value += text.slice(index + 1, stop);
+      current.isQuoted = true;
       index = stop + 1;
     } else if (char === '"') index = readDoubleQuoted(index);
     else if (isPosix && char === "\\" && next === "\n") index += 2;

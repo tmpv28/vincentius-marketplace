@@ -1,21 +1,30 @@
-// PreToolUse on Bash: enforces 11-git-and-delivery on commit messages written by Claude.
+// PreToolUse on Bash|PowerShell: enforces TV 11 on commit messages written by Claude.
 // Reads every -m, a -F file, and the heredoc form Claude Code uses by default.
 const fs = require("node:fs");
 const path = require("node:path");
 
 const { HEREDOC_MARKER, extractHeredocs, lexCommand, splitCommands } = require("./shell-command.js");
 const { parseGitInvocation } = require("./git-invocation.js");
+const { EM_DASH } = require("./code-extensions.js");
+const { readInput, cwdOf } = require("./hook-input.js");
 
 const TYPES = "feat|fix|docs|style|refactor|test|build|ci|perf|chore|revert";
 const SUBJECT = new RegExp(`^((${TYPES})(\\([a-z0-9-]+\\))?!?: |\\[[a-z0-9-]+\\] )\\S`);
-// By code point, because an editor can turn an escape back into the character this file bans.
-const EM_DASH = String.fromCharCode(0x2014);
 // -m "$(cat <<'EOF' ... EOF)", once extractHeredocs has swapped the body for its marker.
 const CAT_HEREDOC = /^\$\(\s*cat\s+<<\s*__HEREDOC_(\d+)__\s*\)$/;
 // Short options of git commit that take a value, so -am, -mfoo and -m foo parse the way git parses them.
 const SHORT_OPTIONS_WITH_VALUE = "mFCct";
 // Short options whose value, if any, is attached (-S<keyid>, -u<mode>), so the rest of the cluster is theirs.
 const SHORT_OPTIONS_WITH_ATTACHED_VALUE = "Su";
+
+// git accepts any unambiguous prefix of a long option, so --mess is --message. Listed are the options
+// that share a prefix with --message or --file; --fi matches both file and fixup, and git rejects it.
+const LONG_OPTIONS_NEAR_MESSAGE_OR_FILE = ["message", "file", "fixup"];
+const longOptionNamed = (prefix) => {
+  if (LONG_OPTIONS_NEAR_MESSAGE_OR_FILE.includes(prefix)) return prefix;
+  const candidates = LONG_OPTIONS_NEAR_MESSAGE_OR_FILE.filter((option) => option.startsWith(prefix));
+  return candidates.length === 1 ? candidates[0] : null;
+};
 
 // Every message source in git commit's arguments: { kind: "message" | "file", value, word }.
 const messageSourcesOf = (argWords) => {
@@ -24,11 +33,11 @@ const messageSourcesOf = (argWords) => {
     const value = argWords[index].value;
     const next = argWords[index + 1];
     if (value === "--") break;
-    const longOption = /^--(message|file)(?:=([\s\S]*))?$/.exec(value);
-    if (longOption) {
-      const kind = longOption[1] === "message" ? "message" : "file";
-      if (longOption[2] !== undefined) sources.push({ kind, value: longOption[2], word: argWords[index] });
-      else if (next) sources.push({ kind, value: argWords[++index].value, word: next });
+    const longMatch = /^--([a-z-]+)(?:=([\s\S]*))?$/.exec(value);
+    const longName = longMatch ? longOptionNamed(longMatch[1]) : null;
+    if (longName === "message" || longName === "file") {
+      if (longMatch[2] !== undefined) sources.push({ kind: longName, value: longMatch[2], word: argWords[index] });
+      else if (next) sources.push({ kind: longName, value: argWords[++index].value, word: next });
       continue;
     }
     if (!/^-[a-zA-Z]/.test(value)) continue;
@@ -74,27 +83,27 @@ const problemsIn = (message) => {
   ].filter(Boolean);
 };
 
-let raw = "";
-process.stdin.on("data", (chunk) => (raw += chunk)).on("end", () => {
-  let input = {};
-  try { input = JSON.parse(raw); } catch { process.exit(0); }
+readInput().then((input) => {
   const command = typeof input?.tool_input?.command === "string" ? input.tool_input.command : "";
   if (!/\bcommit\b/.test(command)) process.exit(0);
-  const cwd = typeof input.cwd === "string" && input.cwd !== "" ? input.cwd : process.cwd();
+  const cwd = cwdOf(input);
+  // PowerShell has no heredocs; its here-strings (@'...'@) are unwrapped by the lexer instead.
+  const isPowerShell = input.tool_name === "PowerShell";
 
-  const { text, heredocs } = extractHeredocs(command);
-  for (const gitCommand of splitCommands(lexCommand(text))) {
+  const { text, heredocs } = isPowerShell ? { text: command, heredocs: [] } : extractHeredocs(command);
+  for (const gitCommand of splitCommands(lexCommand(text, isPowerShell ? "windows" : "posix"))) {
     const git = parseGitInvocation(gitCommand.words.map((word) => word.value));
     if (!git || git.subcommand !== "commit") continue;
 
     // Amends without a new message and merges keep the message git already has.
-    const parts = messageSourcesOf(gitCommand.words.slice(git.subcommandIndex + 1)).map((source) => resolveSource(source, gitCommand, heredocs, cwd));
+    const gitDir = git.workDirs.reduce((dir, workDir) => path.resolve(dir, workDir), cwd);
+    const parts = messageSourcesOf(gitCommand.words.slice(git.subcommandIndex + 1)).map((source) => resolveSource(source, gitCommand, heredocs, gitDir));
     if (parts.length === 0 || parts.includes(null)) continue;
 
     const problems = problemsIn(parts.join("\n\n"));
     if (problems.length === 0) continue;
     process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse",
-      permissionDecision: "deny", permissionDecisionReason: `11-git-and-delivery: ${problems.join("; ")}` } }));
+      permissionDecision: "deny", permissionDecisionReason: `TV 11: ${problems.join("; ")}` } }));
     return;
   }
 });

@@ -122,8 +122,8 @@ const checkSkill = (name, entry) => {
   const seen = new Map();
   for (const path of watchPaths) {
     const commits = ghList(`repos/${repo}/commits?path=${encodeURIComponent(path)}&since=${entry.pinned.date}T00:00:00Z&per_page=${PER_PAGE}`);
-    for (const c of commits)
-      if (c.sha !== entry.pinned.sha && new Date(c.commit.committer.date) > pinnedAt) seen.set(c.sha, c.commit.committer.date);
+    for (const commit of commits)
+      if (commit.sha !== entry.pinned.sha && new Date(commit.commit.committer.date) > pinnedAt) seen.set(commit.sha, commit.commit.committer.date);
   }
   const newer = [...seen.entries()].sort((a, b) => new Date(b[1]) - new Date(a[1]));
   const eligible = newer.filter(([, date]) => ageDays(date) >= MIN_AGE_DAYS);
@@ -171,14 +171,14 @@ const checkNpm = async (name, entry) => {
     tooNew: newer.length - eligible.length, flags };
 };
 
-const printItem = (r) => {
-  const shown = r.kind === "skill" ? String(r.candidate).slice(0, 7) : String(r.candidate);
-  const extra = r.status === "update-available" ? ` → ${shown} (${String(r.candidateDate).slice(0, 10)})` : "";
-  const waiting = r.tooNew ? `, ${r.tooNew} newer but under ${MIN_AGE_DAYS} days` : "";
-  const icon = r.status === "error" ? "✖" : r.status === "update-available" ? "▲" : "✔";
-  console.log(`${icon}  ${r.name}: ${r.status}${extra}${waiting}${r.note ? `; ${r.note}` : ""}${r.error ? ` (${r.error})` : ""}`);
-  for (const f of r.flags) console.log(`     ! ${f}`);
-  for (const c of r.changedFiles || []) console.log(`     ${c}`);
+const printItem = (item) => {
+  const shown = item.kind === "skill" ? String(item.candidate).slice(0, 7) : String(item.candidate);
+  const extra = item.status === "update-available" ? ` → ${shown} (${String(item.candidateDate).slice(0, 10)})` : "";
+  const waiting = item.tooNew ? `, ${item.tooNew} newer but under ${MIN_AGE_DAYS} days` : "";
+  const icon = item.status === "error" ? "✖" : item.status === "update-available" ? "▲" : "✔";
+  console.log(`${icon}  ${item.name}: ${item.status}${extra}${waiting}${item.note ? `; ${item.note}` : ""}${item.error ? ` (${item.error})` : ""}`);
+  for (const flag of item.flags) console.log(`     ! ${flag}`);
+  for (const file of item.changedFiles || []) console.log(`     ${file}`);
 };
 
 // ─── Bump one binary ────────────────────────────────────────
@@ -296,5 +296,5 @@ if (args.includes("--json")) {
   console.log(JSON.stringify(report, null, 2));
   process.exit(hasErrors ? 1 : 0);
 }
-for (const r of report) printItem(r);
+for (const item of report) printItem(item);
 process.exit(hasErrors ? 1 : 0);

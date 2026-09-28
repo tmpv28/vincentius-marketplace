@@ -17,7 +17,7 @@ paths:
 
 TV-PACK: node-tooling
 
-Loaded in full because a Node project's tooling file was read. "TV NN" names the original chapter; docs/rules.md maps each chapter to its packs.
+Loaded in full because a Node project's tooling file was read. "TV NN" names the original chapter; the chapter map at the end of the core names the packs of each chapter.
 Precedence: a pack beats the core where it is more specific. A collision means one side is stale: report it, do not work around it.
 
 ---
@@ -122,7 +122,7 @@ enough to break it.
 
 ### What it does not do
 
-**It does not run the tests.** `09` puts the full suite before finishing, not before every commit,
+**It does not run the tests.** TV 09 puts the full suite before finishing, not before every commit,
 and a hook slow enough to resent is a hook that gets bypassed by habit. `--no-verify` exists for
 the case you have actually decided on, and using it by reflex means you do not have a gate.
 
@@ -216,6 +216,9 @@ ground, or they move to `@stylistic`.
 - `import/prefer-default-export` — named exports are the default here.
 - `max-len` — Prettier owns line length.
 - `react/require-default-props`, `react/prop-types` — TypeScript owns this.
+- `jsx-a11y/no-autofocus`, `jsx-a11y/label-has-associated-control`,
+  `jsx-a11y/no-static-element-interactions`, `jsx-a11y/click-events-have-key-events` — enforced by
+  hand instead; the accessibility pack says what that means.
 
 An `eslint-disable` is allowed and gets a one-line reason. A file-top stack of them means the
 file needs splitting, not more disables.
@@ -248,3 +251,23 @@ fails teaches people to stop running the list.
 
 When a project accumulates more than a handful of repeated shell incantations, they go into a
 `Makefile` or `justfile`. Not into a README the next person has to read.
+
+---
+
+<!-- from standards/03-typescript.md -->
+
+## `strict`, always (TV 03)
+
+`strict: true` from the first commit. Turning it on later is a project, turning it on now is a
+setting.
+
+Non-negotiable compiler options:
+
+```json
+{
+  "strict": true,
+  "forceConsistentCasingInFileNames": true,
+  "noFallthroughCasesInSwitch": true,
+  "isolatedModules": true
+}
+```

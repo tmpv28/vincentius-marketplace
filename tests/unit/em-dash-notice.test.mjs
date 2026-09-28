@@ -9,7 +9,7 @@ const notice = (toolInput, toolName = "Edit") => runHook("em-dash-notice.js", { 
 
 describe("em-dash-notice.js", () => {
   it("adds context when an em-dash is written into a code file", () => {
-    assert.match(notice({ file_path: "src/a.ts", new_string: `// load ${EM_DASH} then parse` }), /00 #5/);
+    assert.match(notice({ file_path: "src/a.ts", new_string: `// load ${EM_DASH} then parse` }), /TV 00 #5/);
   });
 
   it("covers stylesheets and C++ too", () => {
@@ -31,7 +31,7 @@ describe("em-dash-notice.js", () => {
     assert.match(notice({ notebook_path: "analysis.ipynb", new_source: `# a ${EM_DASH} b` }, "NotebookEdit"), /em-dash/);
   });
 
-  it("stays silent for long-form prose, where 00 #5 allows them", () => {
+  it("stays silent for long-form prose, where TV 00 #5 allows them", () => {
     assert.equal(notice({ file_path: "docs/guide.md", content: `A ${EM_DASH} B` }), "");
   });
 

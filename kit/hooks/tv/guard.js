@@ -12,6 +12,7 @@ const { spawnSync } = require("node:child_process");
 
 const { commandBaseName, extractHeredocs, lexCommand, splitCommands, stripCommandPrefix } = require("./shell-command.js");
 const { parseGitInvocation } = require("./git-invocation.js");
+const { readInput, cwdOf } = require("./hook-input.js");
 
 // ─── Secret files ───────────────────────────────────────────
 
@@ -65,7 +66,7 @@ const findSecretIn = (value, baseDir, isEnvRuleSkipped = false) => {
 
 // Home and the system drive, spelled every way a shell on this machine might spell them.
 const HOME_TOKEN = /^(~|\$\{?home\}?|\$\{?userprofile\}?|\$env:(userprofile|home)|%userprofile%)(?=\/|$)/i;
-const DRIVE_TOKEN = /^(\$env:(homedrive|systemdrive)|%(homedrive|systemdrive)%)(?=\/|$)/i;
+const DRIVE_TOKEN = /^(\$env:(homedrive|systemdrive)|\$\{?(homedrive|systemdrive)\}?|%(homedrive|systemdrive)%)(?=\/|$)/i;
 const DOTS_ONLY = /^\.\.?(\/\.\.?)*$/;
 
 // Lowercase, forward slashes, Git Bash's /c as c:, and . and .. resolved: one spelling per place.
@@ -107,10 +108,12 @@ const GREP_OPTIONS_WITH_VALUE = new Set(["-A", "-B", "-C", "-m", "-d", "-D", "-f
 
 const FETCH = "(curl|wget|iwr|irm|invoke-webrequest|invoke-restmethod)";
 const SHELL_NAME = "((ba|z|da|k)?sh|pwsh|powershell)";
-const INTERPRETER = "((ba|z|da|k)?sh|iex|invoke-expression|pwsh|powershell|python3?|node)";
+const SHELL_READER = "((ba|z|da|k)?sh|iex|invoke-expression|pwsh|powershell)\\b";
+// python and node run their stdin only with no script argument, or with "-": python3 -m json.tool reads data.
+const STDIN_READER = "(python3?|node)(\\s+-[a-zA-Z-]+)*(\\s+-)?\\s*(?=$|[;&|)\\n])";
 const PIPE_TO_SHELL = [
-  // curl x | sh, curl x | tee y | sudo bash: any later stage of the pipeline.
-  new RegExp(`\\b${FETCH}\\b[^;\\n]*?\\|\\s*(sudo\\s+(-\\S+\\s+)*)?${INTERPRETER}\\b`, "i"),
+  // curl x | sh, curl x | tee y | sudo bash: any later stage of the pipeline. || is not a pipe.
+  new RegExp(`\\b${FETCH}\\b[^;\\n]*?(?<!\\|)\\|(?!\\|)\\s*(sudo\\s+(-\\S+\\s+)*)?(${SHELL_READER}|${STDIN_READER})`, "i"),
   // iex (iwr x), iex ((New-Object Net.WebClient).DownloadString(x))
   new RegExp(`\\b(iex|invoke-expression)\\b[^;\\n|]*?\\b(${FETCH}|downloadstring)\\b`, "i"),
   // bash <(curl x)
@@ -167,11 +170,12 @@ const wrappedPayload = (name, args) => {
     const flagIndex = args.findIndex((word) => /^-[a-z]*c[a-z]*$/.test(word));
     return flagIndex === -1 || flagIndex + 1 >= args.length ? null : { text: args[flagIndex + 1], dialect: "posix" };
   }
+  // cmd takes /c, or //c from Git Bash, where MSYS would otherwise rewrite /c as a path.
   const flagIndex =
     name === "pwsh" || name === "powershell"
       ? args.findIndex((word) => /^[-/]c(o(m(m(a(n(d)?)?)?)?)?)?$/i.test(word))
       : name === "cmd"
-        ? args.findIndex((word) => /^\/[ck]$/i.test(word))
+        ? args.findIndex((word) => /^\/\/?[ck]$/i.test(word))
         : -1;
   return flagIndex === -1 ? null : { text: args.slice(flagIndex + 1).join(" "), dialect: "windows" };
 };
@@ -213,8 +217,10 @@ const findSecretInCommand = (command, masked, cwd) => {
   const git = parseGitInvocation(values);
   const isNonReading = NON_READING_COMMANDS.has(name) || (git !== null && NON_READING_GIT.has(git.subcommand));
   const patternIndexes = GREP_COMMANDS.has(name) ? grepPatternIndexes(args).map((index) => commandIndex + 1 + index) : [];
+  // git log --grep=id_rsa searches commit messages; the value is a pattern, not a path.
+  const isGitSearchPattern = (index) => git !== null && (/^--grep=/.test(values[index]) || values[index - 1] === "--grep");
   for (const [index, word] of command.words.entries()) {
-    if (masked.has(word) || patternIndexes.includes(index)) continue;
+    if (masked.has(word) || patternIndexes.includes(index) || isGitSearchPattern(index)) continue;
     const secret = findSecretIn(word.value, cwd, isNonReading);
     if (secret) return secret;
   }
@@ -237,7 +243,10 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
   const { text, heredocs } = extractHeredocs(commandText);
   const commands = splitCommands(lexCommand(text, dialect));
   const masked = new Set(commands.flatMap(messageWords));
-  if (PIPE_TO_SHELL.some((pattern) => pattern.test(maskWords(text, masked)))) return "pipe-to-shell";
+  // Quoted text is data to the pipe scan (echo 'never curl x | sh'). A quoted payload that does run,
+  // bash -c '...', is still scanned: the loop below recurses into it.
+  const quotedData = commands.flatMap((command) => command.words.filter((word) => word.isQuoted && word.substitutions.length === 0));
+  if (PIPE_TO_SHELL.some((pattern) => pattern.test(maskWords(text, new Set([...masked, ...quotedData]))))) return "pipe-to-shell";
   const isSeed = SEED.test(commandText.replace(/\\/g, "/"));
 
   for (const command of commands) {
@@ -266,13 +275,10 @@ const findViolation = (commandText, dialect, cwd, depth = 0) => {
 
 // ─── Main ───────────────────────────────────────────────────
 
-let raw = "";
-process.stdin.on("data", (chunk) => (raw += chunk)).on("end", () => {
-  let input;
-  try { input = JSON.parse(raw); } catch { process.exit(0); } // fail open; permission rules still apply
-  if (!input || typeof input !== "object") process.exit(0);
+readInput().then((input) => {
+  if (!input) process.exit(0);
   const toolInput = input.tool_input && typeof input.tool_input === "object" ? input.tool_input : {};
-  const cwd = typeof input.cwd === "string" && input.cwd !== "" ? input.cwd : process.cwd();
+  const cwd = cwdOf(input);
   const deny = (reason) => process.stdout.write(JSON.stringify({ hookSpecificOutput: {
     hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: `guard: ${reason}` } }));
 

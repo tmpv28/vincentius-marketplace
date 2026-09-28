@@ -6,7 +6,7 @@ Work top to bottom. Nothing here is optional.
 
 ## 1. Scaffold
 
-- [ ] Copy `templates/react-ts-starter/` and rename the folder.
+- [ ] Copy `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/templates/react-ts-starter/` and rename the folder.
 - [ ] Set `name` and `description` in `package.json`. The description follows the house form:
       `"React with TypeScript | <one line on what this is>"`.
 - [ ] Change `<title>` in `index.html`.
@@ -41,7 +41,7 @@ manifest.
       tree, layer hierarchy, context provider order, key principles, comment style, self-service
       order.
 - [ ] `README.md` with what it is, how to run it, how to check it. Nothing aspirational.
-- [ ] A line in `CLAUDE.md` pointing at `TV-STANDARD/` as the governing standard.
+- [ ] A line in `CLAUDE.md` saying TV-STANDARD governs it (the rules installed in `~/.claude/rules/tv/`).
 
 Writing `CLAUDE.md` before the first feature is the point. It forces the architecture decisions to
 be made deliberately rather than accreted.
@@ -88,6 +88,6 @@ everything else gets compared to, and it is where the conventions get proven.
 - [ ] `pnpm build` succeeds.
 - [ ] `pnpm dev` starts and the branded banner prints.
 - [ ] Storybook runs. A story is written when a component has variants worth seeing side by
-      side (`04`), not to tick this box.
+      side (TV 04), not to tick this box.
 - [ ] Every dependency checked for advisories, and none released in the last 7 days.
 - [ ] `pnpm-lock.yaml` committed.

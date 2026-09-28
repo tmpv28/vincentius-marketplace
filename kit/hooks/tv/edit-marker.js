@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const { markerPathFor, markProject } = require("./session-marker.js");
+const { readInput, cwdOf } = require("./hook-input.js");
 
 const findProjectRoot = (filePath) => {
   for (let dir = path.dirname(filePath); ; dir = path.dirname(dir)) {
@@ -13,14 +14,11 @@ const findProjectRoot = (filePath) => {
   }
 };
 
-let raw = "";
-process.stdin.on("data", (chunk) => (raw += chunk)).on("end", () => {
-  let input = {};
-  try { input = JSON.parse(raw); } catch { process.exit(0); }
-  const markerPath = markerPathFor(input?.session_id);
+readInput().then((input) => {
+  const markerPath = input ? markerPathFor(input.session_id) : null;
   if (!markerPath) process.exit(0);
 
-  const cwd = typeof input.cwd === "string" && input.cwd !== "" ? input.cwd : process.cwd();
+  const cwd = cwdOf(input);
   // Edit, MultiEdit and Write name the file in file_path; NotebookEdit names it in notebook_path.
   const editedFile = input.tool_input?.file_path || input.tool_input?.notebook_path;
   markProject(markerPath, typeof editedFile === "string" ? findProjectRoot(path.resolve(cwd, editedFile)) : null);

@@ -32,7 +32,7 @@
 
 ## The conventions
 
-- [ ] Suffixes correct, against the full table in `standards/02-naming.md`: `Type`, `Component`,
+- [ ] Suffixes correct, against the full suffix table (TV 02, typescript pack): `Type`, `Component`,
       `Feature`, `Page`, `System`, `Context`, `Controller`, `FnType`, `Definition`, `Handler`,
       `Layout`.
 - [ ] `modules/` used for internals, entry file named `<FolderName><LayerSuffix>`.

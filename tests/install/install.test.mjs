@@ -1,7 +1,8 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, lstatSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync, cpSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, lstatSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -93,7 +94,46 @@ describe("install.mjs", () => {
     const result = install(empty, "--dry-run");
     assert.equal(result.status, 0);
     assert.match(result.stdout, /dry run: would write \d+/);
-    assert.equal(existsSync(join(empty, "vincentius-marketplace.installed.json")), false);
+    assert.deepEqual(readdirSync(empty), []);
+  });
+
+  it("dry-run with --apply-settings shows the merge and writes nothing", () => {
+    const empty = fresh();
+    const result = install(empty, "--dry-run", "--apply-settings");
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /\+ .*hooks\/tv\/guard\.js/);
+    assert.deepEqual(readdirSync(empty), []);
+  });
+
+  it("uninstall --dry-run removes nothing", () => {
+    const other = fresh();
+    install(other, "--apply-settings");
+    const before = walk(other).length;
+    assert.equal(install(other, "--uninstall", "--dry-run").status, 0);
+    assert.equal(walk(other).length, before);
+  });
+
+  it("backs up files listed by an old manifest without hashes before changing them", () => {
+    const other = fresh();
+    install(other);
+    const manifest = manifestOf(other);
+    manifest.files = Object.keys(manifest.files);
+    writeFileSync(join(other, "vincentius-marketplace.installed.json"), JSON.stringify(manifest));
+    const rule = join(other, "rules", "tv", "accessibility.md");
+    writeFileSync(rule, "MY EDIT");
+    assert.equal(install(other).status, 0);
+    const [kept] = backupsOf(join(other, "rules", "tv"), "accessibility.md");
+    assert.equal(readFileSync(join(other, "rules", "tv", kept), "utf8"), "MY EDIT");
+  });
+
+  it("detects the plugin route from a copy in the plugin cache, with no git metadata", () => {
+    const cache = join(fresh(), "plugins", "cache", "vincentius-marketplace", "vincentius", "abc123");
+    for (const part of ["install.mjs", "package.json", "kit", "vendor", "scripts"])
+      cpSync(join(REPO, part), join(cache, part), { recursive: true, filter: (src) => !/node_modules/.test(src) });
+    const other = fresh();
+    const result = spawnSync(process.execPath, [join(cache, "install.mjs")], { env: { ...process.env, CLAUDE_CONFIG_DIR: other }, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(manifestOf(other).route, "plugin");
   });
 
   it("never overwrites a file the kit does not own", () => {
@@ -113,7 +153,7 @@ describe("install.mjs", () => {
     mkdirSync(join(other, "skills", "retired"), { recursive: true });
     writeFileSync(join(other, "skills", "retired", "SKILL.md"), "old");
     writeFileSync(join(other, "skills", "mine.md"), "the user's own file");
-    manifest.files["skills/retired/SKILL.md"] = null;
+    manifest.files["skills/retired/SKILL.md"] = createHash("sha256").update("old").digest("hex");
     writeFileSync(join(other, "vincentius-marketplace.installed.json"), JSON.stringify(manifest));
     install(other);
     assert.equal(existsSync(join(other, "skills", "retired", "SKILL.md")), false);
@@ -230,6 +270,16 @@ describe("install.mjs", () => {
       assert.ok(commandsOf(settingsOf(other).hooks.Stop).includes("echo user-added"));
     });
 
+    it("drops a kit hook that the kit no longer ships", () => {
+      const other = fresh();
+      install(other, "--apply-settings");
+      const settings = settingsOf(other);
+      settings.hooks.Stop[0].hooks.push({ type: "command", command: "node", args: [`${other}/hooks/tv/retired-hook.js`] });
+      writeFileSync(join(other, "settings.json"), JSON.stringify(settings));
+      install(other, "--apply-settings");
+      assert.equal(commandsOf(settingsOf(other).hooks.Stop).some((c) => c.includes("retired-hook")), false);
+    });
+
     it("keeps your status line and says so", () => {
       const other = fresh();
       writeFileSync(join(other, "settings.json"), JSON.stringify({ statusLine: { type: "command", command: "my-line" } }));
@@ -248,7 +298,7 @@ describe("install.mjs", () => {
     });
   });
 
-  it("works on another machine's config dir with no personal files", () => {
+  it("installs no personal files without --personal", () => {
     const other = fresh();
     install(other);
     assert.equal(existsSync(join(other, "CLAUDE.md")), false);

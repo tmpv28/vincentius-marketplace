@@ -19,8 +19,9 @@ The monthly upstream check. Read-only unless I ask for a bump.
 4. Only when I name an item: `node "<source>/scripts/vendor-check.mjs" --bump <name>`. It refuses while the report
    has flags for that item; add `--accept-flags` only after I have read them and said yes. If its patches no
    longer apply, it stops and restores upstream; say which patch and why.
-5. After a bump: read the diff of `vendor/<name>/upstream`. The installer refuses the item until `reviewed` in
-   `vendor/vendor.json` holds today's date; set it only once the diff is read. Then reinstall with
+5. After a bump: read the diff of `vendor/<name>/upstream`. A bump clears `reviewed` in `vendor/vendor.json`, and the installer
+   refuses a skill until it is set again; set it to today's date only once the diff is read. A binary is not
+   checked by the installer: record its signer before setting `reviewed`. Then reinstall with
    `node "<source>/install.mjs"`, run `node "<source>/scripts/notices.mjs"`, and propose the commit
    `chore(vendor): bump <name> to <short sha>` with a body that says why and which flags were reviewed.
    A binary bump (`impeccable-engine`) also needs impeccable's `002-pin-engine-sha256.patch` regenerated with

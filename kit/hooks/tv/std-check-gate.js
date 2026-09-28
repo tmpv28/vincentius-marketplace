@@ -1,4 +1,4 @@
-// Stop hook: the Claude-side twin of .husky/pre-commit, so "done" cannot skip std:check (00 #6).
+// Stop hook: the Claude-side twin of .husky/pre-commit, so "done" cannot skip std:check (TV 00 #6).
 // It runs a repo's std:check without asking, which leans on Claude Code's workspace trust, so it runs
 // ONLY a std:check that is the repo's own node script (node scripts/<file>.js), never any other command.
 // It runs that script with this node directly, not through pnpm and not through a shell: pnpm would
@@ -8,6 +8,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const { markerPathFor, readMarkedProjects } = require("./session-marker.js");
+const { readInput, cwdOf } = require("./hook-input.js");
 
 // The TV template's `node scripts/standardCheck.js` and this repo's `node scripts/std-check.mjs`.
 // Arguments may follow, but no shell syntax or quotes, so splitting them on whitespace is exact.
@@ -28,16 +29,12 @@ const readGate = (projectDir) => {
   }
 };
 
-let raw = "";
-process.stdin.on("data", (chunk) => (raw += chunk)).on("end", () => {
-  let input = {};
-  try { input = JSON.parse(raw); } catch { process.exit(0); }
-
+readInput().then((input) => {
   // Only a turn in which Claude edited something is gated.
-  const markerPath = markerPathFor(input?.session_id);
+  const markerPath = input ? markerPathFor(input.session_id) : null;
   if (!markerPath || !fs.existsSync(markerPath)) process.exit(0);
   const recordedDirs = readMarkedProjects(markerPath);
-  const projectDirs = recordedDirs.length > 0 ? recordedDirs : [typeof input.cwd === "string" && input.cwd !== "" ? input.cwd : process.cwd()];
+  const projectDirs = recordedDirs.length > 0 ? recordedDirs : [cwdOf(input)];
 
   const deadline = Date.now() + CHECK_BUDGET_MS;
   const notices = [];
@@ -46,6 +43,8 @@ process.stdin.on("data", (chunk) => (raw += chunk)).on("end", () => {
     const gate = readGate(projectDir);
     if (gate.isUnparseable) notices.push(`${path.join(projectDir, "package.json")} could not be parsed, so std:check did not run there.`);
     const localScript = gate.script ? LOCAL_NODE_SCRIPT.exec(gate.script.trim()) : null;
+    if (gate.script && !localScript)
+      notices.push(`std:check in ${projectDir} was skipped: "${gate.script}" is not "node scripts/<file>.js", and the gate runs nothing else without asking.`);
     if (!localScript) continue;
 
     const [, scriptPath, scriptArgs] = localScript;
@@ -69,6 +68,7 @@ process.stdin.on("data", (chunk) => (raw += chunk)).on("end", () => {
     process.exit(0);
   }
 
-  process.stderr.write(`std:check failed. Fix it before reporting done (00 #6).\n${[...notices, ...failures].join("\n")}`);
+  // Notices wait for the run that consumes the marker, so each is told to the user exactly once.
+  process.stderr.write(`std:check failed. Fix it before reporting done (TV 00 #6).\n${failures.join("\n")}`);
   process.exit(2);
 });

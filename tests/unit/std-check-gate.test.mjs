@@ -139,10 +139,23 @@ describe("std-check-gate.js", () => {
   });
 
   describe("when std:check is not the repo's own node script", () => {
-    it("skips a std:check that runs anything else", () => {
+    it("skips a std:check that runs anything else, and says why once", () => {
       const id = newSession();
       mark(id, foreignCommand);
-      assert.equal(stop(id, foreignCommand).status, 0);
+      const result = stop(id, foreignCommand);
+      assert.equal(result.status, 0);
+      assert.match(JSON.parse(result.stdout).systemMessage, /was skipped: .* is not "node scripts\/<file>\.js"/);
+      assert.equal(stop(id, foreignCommand).stdout, "");
+    });
+
+    it("holds the skip notice through a block and reports it on the retry that consumes the marker", () => {
+      const id = newSession();
+      mark(id, failing, join(foreignCommand, "a.ts"));
+      mark(id, failing, join(failing, "b.ts"));
+      const blocked = stop(id, failing);
+      assert.equal(blocked.status, 2);
+      assert.doesNotMatch(blocked.stderr, /was skipped/);
+      assert.match(stop(id, failing, true).stdout, /still failing.*was skipped/);
     });
 
     it("skips a local script chained with another command", () => {

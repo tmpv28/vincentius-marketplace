@@ -81,7 +81,7 @@ or were restatements of a section that owns the topic.
 | standards/02-naming.md | Constants | typescript.md |
 | standards/02-naming.md | Variables | core.md |
 | standards/02-naming.md | Length is not a cost | core.md |
-| standards/03-typescript.md | `strict`, always | typescript.md |
+| standards/03-typescript.md | `strict`, always | node-tooling.md |
 | standards/03-typescript.md | `interface` vs `type` | typescript.md |
 | standards/03-typescript.md | Do not create trivial alias types | typescript.md |
 | standards/03-typescript.md | Constants as the source of types | typescript.md |
@@ -98,8 +98,8 @@ or were restatements of a section that owns the topic.
 | standards/04-react-components.md | The file, top to bottom | react.md |
 | standards/04-react-components.md | The `//-----------` separator | react.md |
 | standards/04-react-components.md | Ordering inside the component body | react.md |
-| standards/04-react-components.md | Memoization discipline | react.md |
-| standards/04-react-components.md | Guard clauses and early returns | react.md |
+| standards/04-react-components.md | Memoization discipline | typescript.md |
+| standards/04-react-components.md | Guard clauses and early returns | typescript.md |
 | standards/04-react-components.md | Conditional rendering | react.md |
 | standards/04-react-components.md | Nested ternaries | react.md |
 | standards/04-react-components.md | Loading, empty and error are props, not branches | react.md |
@@ -109,7 +109,7 @@ or were restatements of a section that owns the topic.
 | standards/04-react-components.md | Validation objects drive both the block and the reason | react.md |
 | standards/04-react-components.md | Escape hatches, in a fixed shape | react.md |
 | standards/04-react-components.md | The UI library stays behind a wrapper | react.md |
-| standards/04-react-components.md | Small idioms that add up | react.md |
+| standards/04-react-components.md | Small idioms that add up | typescript.md |
 | standards/04-react-components.md | Accessibility | accessibility.md |
 | standards/04-react-components.md | What never appears in a component | react.md |
 | standards/05-state-and-contexts.md | No state library | typescript.md |
@@ -148,7 +148,7 @@ or were restatements of a section that owns the topic.
 | standards/08-comments-and-docs.md | JSDoc | typescript.md |
 | standards/08-comments-and-docs.md | Numbered steps | core.md |
 | standards/08-comments-and-docs.md | Banners | core.md |
-| standards/08-comments-and-docs.md | Trailing comments on dependency arrays | react.md |
+| standards/08-comments-and-docs.md | Trailing comments on dependency arrays | typescript.md |
 | standards/08-comments-and-docs.md | The architecture docblock | core.md |
 | standards/08-comments-and-docs.md | Project documentation | core.md |
 | standards/09-testing.md | The position | testing.md |

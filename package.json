@@ -15,6 +15,7 @@
     "vendor:check": "node scripts/vendor-check.mjs",
     "budget": "node scripts/listing-budget.mjs",
     "vendor:patch": "node scripts/vendor-patch.mjs",
-    "notices": "node scripts/notices.mjs"
+    "notices": "node scripts/notices.mjs",
+    "rules:map": "node scripts/rules-map.mjs"
   }
 }

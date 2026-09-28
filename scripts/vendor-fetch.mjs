@@ -2,13 +2,12 @@
 // upstream licence. Used for first vendoring and by vendor-check --bump. Needs git and tar.
 // Usage: node scripts/vendor-fetch.mjs <name> <local clone>   (fetches the sha pinned in vendor.json)
 import { mkdirSync, rmSync, existsSync, writeFileSync, mkdtempSync, cpSync, chmodSync } from "node:fs";
-import { join, resolve, basename } from "node:path";
+import { join, basename } from "node:path";
 import { spawnSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 
 import { VENDOR, GIT_VERBATIM, readVendor, writeVendor, hashUpstream } from "./vendor-lib.mjs";
-import { walk } from "./files.mjs";
+import { walk, isRunDirectly } from "./files.mjs";
 
 const gitIn = (clone, args, input) => {
   const result = spawnSync("git", ["-C", clone, ...GIT_VERBATIM, ...args], { input, maxBuffer: 1 << 28 });
@@ -76,8 +75,7 @@ export const fetchUpstream = (name, entry, clone, sha) => {
 };
 
 // ─── Main ───────────────────────────────────────────────────
-const isCli = process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
-if (isCli) {
+if (isRunDirectly(import.meta.url)) {
   const [name, clone] = process.argv.slice(2);
   if (!name || !clone) { console.error("usage: vendor-fetch.mjs <name> <local clone>"); process.exit(2); }
   const vendor = readVendor();

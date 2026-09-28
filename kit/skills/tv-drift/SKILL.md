@@ -24,7 +24,7 @@ tell me about the drift instead of silently fixing it. This skill is the telling
    - `@import`, hex or rgb literals and raw pixel breakpoints in component stylesheets
    - a committed `.env` with values (check with `git show HEAD:.env`, never by reading the working file)
    - em-dashes in code-adjacent text; `console.log`; commented-out code; `// TODO: handle error`
-4. Check `CLAUDE.md` against the chapter 08 order and that it names the reference entity.
+4. Check `CLAUDE.md` against the TV 08 order and that it names the reference entity.
 
 ## Output
 

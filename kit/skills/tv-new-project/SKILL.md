@@ -26,7 +26,8 @@ evidence, or as blocked, with the reason.
 6. `pnpm install --frozen-lockfile`, so the reviewed lockfile is what gets installed. The template sets the 7-day
    minimum release age for any later `pnpm add`; if one is refused for age, say which package.
 7. `pnpm std:check` must pass on the untouched copy before anything else.
-8. Break something on purpose, try to commit, confirm the hook refuses it, then undo the break.
+8. Break something on purpose and run `pnpm std:check` to confirm the gate fails, then undo the break. Try the
+   commit hook the same way only if I asked for commits in this run; a hook that fails to refuse would commit.
 9. The first commit is `chore: scaffold project` and contains only the scaffold. Make it only if I asked for
    commits as part of this run; otherwise stop and say it is ready to commit.
 10. Work through the remaining checklist sections (documentation, skeleton, first vertical slice, before calling

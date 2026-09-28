@@ -1,12 +1,14 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { runHook, isDenied, makeTempDir, EM_DASH } from "./helpers.mjs";
+import { runHook, isDenied, makeTempDir, EM_DASH, REPO } from "./helpers.mjs";
 
 const messageDir = makeTempDir("commit-messages");
 writeFileSync(join(messageDir, "bad.txt"), "Fixed stuff.\n");
+mkdirSync(join(messageDir, "sub"));
+writeFileSync(join(messageDir, "sub", "msg.txt"), "Fixed stuff.\n");
 writeFileSync(join(messageDir, "good.txt"), "\nfeat(api): add read controller\n\nBody explains why.\n");
 
 const heredoc = (message) => `git commit -m "$(cat <<'EOF'\n${message}\nEOF\n)"`;
@@ -55,10 +57,30 @@ const PARSING = [
   [heredoc("fix: subject wraps\nonto a second line that makes the first paragraph run past one hundred characters in total"), "deny"]
 ];
 
-const runCases = (cases) => {
+// Pass 2: long-option abbreviations as git reads them, and -C moving where -F looks.
+const ABBREVIATIONS_AND_WORK_DIRS = [
+  ['git commit --mess="Fixed stuff."', "deny"],
+  ['git commit --mes "Fixed stuff."', "deny"],
+  ['git commit --m "fix: shortest unambiguous prefix"', "allow"],
+  ["git commit --fil=bad.txt", "deny"],
+  ["git commit --fi bad.txt", "allow"],
+  ["git -C sub commit -F msg.txt", "deny"],
+  ["git commit -F msg.txt", "allow"]
+];
+
+// Pass 2: the same rules through the PowerShell tool, here-strings included.
+const POWERSHELL = [
+  ['git commit -m "Fixed stuff."', "deny"],
+  ["git commit -m @'\nfix(hooks): x\n'@", "allow"],
+  ["git commit -m @'\nFixed stuff.\n'@", "deny"],
+  ['git commit -m @"\nfix(hooks): $scope\n"@', "allow"],
+  ["git commit -m 'docs(readme): single quotes'", "allow"]
+];
+
+const runCases = (cases, toolName = "Bash") => {
   for (const [command, expected] of cases)
-    it(`${expected === "deny" ? "denies" : "allows"} ${JSON.stringify(command).slice(0, 70)}`, () => {
-      assert.equal(check(command), expected === "deny");
+    it(`${expected === "deny" ? "denies" : "allows"} ${toolName} ${JSON.stringify(command).slice(0, 70)}`, () => {
+      assert.equal(isDenied(runHook("commit-guard.js", { cwd: messageDir, tool_name: toolName, tool_input: { command } })), expected === "deny");
     });
 };
 
@@ -66,9 +88,18 @@ describe("commit-guard.js", () => {
   runCases(CASES);
 
   describe("when the message arrives through options, files or stdin", () => runCases(PARSING));
+  describe("when an option is abbreviated or git runs in another folder", () => runCases(ABBREVIATIONS_AND_WORK_DIRS));
+  describe("when the command comes from the PowerShell tool", () => runCases(POWERSHELL, "PowerShell"));
+
+  it("runs for PowerShell as well as Bash, per hooks.snippet.json", () => {
+    const snippet = JSON.parse(readFileSync(join(REPO, "kit", "settings", "hooks.snippet.json"), "utf8"));
+    const entry = snippet.hooks.PreToolUse.find((candidate) => candidate.hooks.some((hook) => hook.args.some((arg) => arg.endsWith("commit-guard.js"))));
+    assert.deepEqual(entry.matcher.split("|").sort(), ["Bash", "PowerShell"]);
+  });
 
   it("names every problem in the reason", () => {
     const result = runHook("commit-guard.js", { tool_name: "Bash", tool_input: { command: heredoc("Fixed stuff.") } });
+    assert.match(result.stdout, /"TV 11: /);
     assert.match(result.stdout, /prefix/);
     assert.match(result.stdout, /period/);
   });

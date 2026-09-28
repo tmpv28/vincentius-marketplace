@@ -123,3 +123,11 @@ Recorded as they happen, in the shape: what was wrong, what was checked, what is
 - Accepted and documented rather than fixed: upstreamSha256 does not cover patches or licences (a git diff
   shows those); an engine reached through IMPECCABLE_BIN or PATH runs unhashed (upstream's model);
   `cat .*` is not denied; a commit nested inside `bash -c` is not checked.
+- Pass 2 (installer, hooks, rules): not clean. Rules still had .ts-governing sections in react.md (moved to
+  typescript) and pointed at docs/rules.md, which is never installed: the chapter map is now generated
+  into the end of core.md by scripts/rules-map.mjs and checked by std-check. The typescript pack also
+  loads for .js/.jsx/.mjs/.cjs. Installer drops kit hooks the kit no longer ships and backs up files of
+  hashless (pre-0.2) manifests. Hooks: PowerShell commits checked, pipe-to-shell false positives removed,
+  whole-line heredoc terminators, one hook-input helper.
+- Phase 9 note: the real ~/.claude holds the Phase 0 guard.js, which the kit does not own; install there
+  with --force (it backs the file up first).

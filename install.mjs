@@ -11,12 +11,11 @@
 // you edited is backed up before an update replaces it or an uninstall removes it.
 import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync, copyFileSync, renameSync, chmodSync } from "node:fs";
 import { join, dirname, relative, resolve } from "node:path";
-import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { readVendor, buildItem, verifyItem } from "./scripts/vendor-lib.mjs";
-import { toPosix, sha256, walk, pruneEmptyDirs } from "./scripts/files.mjs";
+import { toPosix, sha256, walk, pruneEmptyDirs, configDir, isRunDirectly } from "./scripts/files.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const KIT = join(ROOT, "kit");
@@ -27,11 +26,11 @@ const option = (name) => args.find((a) => a.startsWith(`--${name}=`))?.split("="
 // One spelling per directory: a trailing slash, a relative path or a lower-case drive letter would
 // otherwise produce hook commands that never match the ones already merged, and every hook would run twice.
 const normaliseDir = (dir) => resolve(dir).replace(/^[a-z]:/, (drive) => drive.toUpperCase());
-const TARGET = normaliseDir(process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"));
+const TARGET = normaliseDir(configDir());
 const TARGET_POSIX = toPosix(TARGET);
 const MANIFEST = join(TARGET, "vincentius-marketplace.installed.json");
 const SETTINGS = join(TARGET, "settings.json");
-const DRY = flag("dry-run");
+const IS_DRY_RUN = flag("dry-run");
 const VERSION = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version;
 // The plugin's setup skill passes --route=plugin; a copy inside the plugin cache is the plugin route too.
 const ROUTE = option("route") || (/\/plugins\/cache\//.test(toPosix(ROOT)) ? "plugin" : "clone");
@@ -42,7 +41,7 @@ const log = (icon, text) => console.log(`${icon}  ${text}`);
 const readManifest = () => {
   if (!existsSync(MANIFEST)) return null;
   const manifest = JSON.parse(readFileSync(MANIFEST, "utf8"));
-  // Manifests before 0.2 listed files without hashes: treat every one as unedited.
+  // Manifests before 0.2 listed files without hashes; isEditedSince treats a missing hash as edited.
   if (Array.isArray(manifest.files)) manifest.files = Object.fromEntries(manifest.files.map((rel) => [rel, null]));
   return manifest;
 };
@@ -53,10 +52,11 @@ const writeManifest = (manifest) => {
 };
 const backup = (path) => {
   const copy = `${path}.bak-${STAMP}`;
-  if (!DRY) copyFileSync(path, copy);
+  if (!IS_DRY_RUN) copyFileSync(path, copy);
   return toPosix(relative(TARGET, copy));
 };
-const isEditedSince = (path, recordedHash) => Boolean(recordedHash) && sha256(readFileSync(path)) !== recordedHash;
+// A manifest from before 0.2 has no hashes: an unknown file counts as edited, so it is backed up, never lost.
+const isEditedSince = (path, recordedHash) => !recordedHash || sha256(readFileSync(path)) !== recordedHash;
 
 // ─── Preflight ──────────────────────────────────────────────
 const preflight = () => {
@@ -88,16 +88,21 @@ const plan = () => {
   addTree(join(KIT, "templates"), "templates", isTemplateNoise);
 
   // Vendored skills and agents, rebuilt from their verified upstream plus patches on every install.
-  for (const [name, entry] of Object.entries(readVendor())) {
-    if (entry.kind !== "skill") continue;
-    verifyItem(name, entry);
-    const built = buildItem(name, entry);
-    buildDirs.push(built);
-    const excluded = new Set(entry.exclude || []);
-    if (entry.install.skill) addTree(join(built, "skill"), entry.install.skill, (rel) => excluded.has(rel));
-    if (entry.install.agents) addTree(join(built, "agents"), entry.install.agents);
-  }
   const cleanup = () => { for (const dir of buildDirs) rmSync(dir, { recursive: true, force: true }); };
+  try {
+    for (const [name, entry] of Object.entries(readVendor())) {
+      if (entry.kind !== "skill") continue;
+      verifyItem(name, entry);
+      const built = buildItem(name, entry);
+      buildDirs.push(built);
+      const excluded = new Set(entry.exclude || []);
+      if (entry.install.skill) addTree(join(built, "skill"), entry.install.skill, (rel) => excluded.has(rel));
+      if (entry.install.agents) addTree(join(built, "agents"), entry.install.agents);
+    }
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
   return { files, cleanup };
 };
 
@@ -121,7 +126,7 @@ const removeKitFile = (rel, recordedHash) => {
   const path = join(TARGET, rel);
   if (!existsSync(path)) return null;
   const kept = isEditedSince(path, recordedHash) ? backup(path) : null;
-  if (!DRY) { rmSync(path); pruneEmptyDirs(dirname(path), TARGET); }
+  if (!IS_DRY_RUN) { rmSync(path); pruneEmptyDirs(dirname(path), TARGET); }
   return kept;
 };
 
@@ -150,8 +155,9 @@ export const mergeSettings = (current, addition, { kitStatusLine = null } = {}) 
   const kept = [];
   for (const [event, groups] of Object.entries(addition.hooks || {})) {
     next.hooks = next.hooks || {};
+    // Every kit hook goes, not only the ones shipped again: a hook the kit dropped would run a deleted script.
     const incoming = new Set(groups.flatMap((group) => group.hooks.map(hookId)));
-    next.hooks[event] = [...withoutHooks(next.hooks[event] || [], (hook) => incoming.has(hookId(hook))), ...groups];
+    next.hooks[event] = [...withoutHooks(next.hooks[event] || [], (hook) => isKitHook(hook) || incoming.has(hookId(hook))), ...groups];
   }
   for (const list of ["allow", "ask", "deny"]) {
     const wanted = addition.permissions?.[list];
@@ -194,7 +200,7 @@ const writeSettings = (current, next) => {
   const newLines = new Set(after.split("\n"));
   for (const line of before.split("\n")) if (!newLines.has(line)) console.log(`   - ${line.trim()}`);
   for (const line of after.split("\n")) if (!oldLines.has(line)) console.log(`   + ${line.trim()}`);
-  if (DRY) { log("·", "dry run: settings.json not written"); return true; }
+  if (IS_DRY_RUN) { log("·", "dry run: settings.json not written"); return true; }
   if (existsSync(SETTINGS)) log("✔", `backup: ${backup(SETTINGS)}`);
   writeFileSync(SETTINGS, after + "\n");
   return true;
@@ -212,7 +218,7 @@ const applySettings = (manifest) => {
     kept = [...kept, ...personal.kept];
   }
   if (!writeSettings(current, next)) log("✔", "settings.json already has everything; not written");
-  else if (!DRY) log("✔", "settings.json merged");
+  else if (!IS_DRY_RUN) log("✔", "settings.json merged");
   if (kept.length) log("·", `kept your own value for: ${kept.join(", ")}`);
   if (next.statusLine?.command === kit.statusLine.command) manifest.statusLine = kit.statusLine.command;
 };
@@ -228,12 +234,13 @@ const uninstall = () => {
   }
   if (existsSync(SETTINGS)) {
     const current = readSettings();
-    if (writeSettings(current, unmergeSettings(current, { kitStatusLine: manifest.statusLine })) && !DRY)
+    if (writeSettings(current, unmergeSettings(current, { kitStatusLine: manifest.statusLine })) && !IS_DRY_RUN)
       log("✔", "kit hooks removed from settings.json");
-    if (current.permissions || current.env) log("·", "permissions and env are left as they are; --personal entries are yours to remove");
+    if (current.permissions || current.env)
+      log("·", "left as they are, yours to remove if --personal added them: permissions, env, the Notification hook, effortLevel, autoUpdatesChannel, skillListingBudgetFraction, enableAllProjectMcpServers");
   }
-  if (!DRY) rmSync(MANIFEST);
-  log("✔", `${DRY ? "would remove" : "removed"} ${rels.length} files; nothing else touched`);
+  if (!IS_DRY_RUN) rmSync(MANIFEST);
+  log("✔", `${IS_DRY_RUN ? "would remove" : "removed"} ${rels.length} files; nothing else touched`);
   return 0;
 };
 
@@ -254,12 +261,12 @@ const install = () => {
       const dest = join(TARGET, rel);
       const content = render(src);
       const hash = sha256(content);
-      const exists = existsSync(dest);
-      if (exists && readFileSync(dest).equals(content)) { manifestFiles[rel] = hash; unchanged++; continue; }
+      const doesDestExist = existsSync(dest);
+      if (doesDestExist && readFileSync(dest).equals(content)) { manifestFiles[rel] = hash; unchanged++; continue; }
       const isOwned = rel in owned;
-      if (exists && !isOwned && !flag("force")) { conflicts.push(rel); continue; }
-      if (exists && (!isOwned || isEditedSince(dest, owned[rel]))) log("!", `${rel} ${isOwned ? "had your edits" : "was yours"}; kept as ${backup(dest)}`);
-      if (!DRY) writeKitFile(dest, content);
+      if (doesDestExist && !isOwned && !flag("force")) { conflicts.push(rel); continue; }
+      if (doesDestExist && (!isOwned || isEditedSince(dest, owned[rel]))) log("!", `${rel} ${isOwned ? "had your edits" : "was yours"}; kept as ${backup(dest)}`);
+      if (!IS_DRY_RUN) writeKitFile(dest, content);
       else log("+", rel);
       manifestFiles[rel] = hash;
       written++;
@@ -279,9 +286,9 @@ const install = () => {
   const proposed = join(ROOT, "personal", "CLAUDE.md");
   if (flag("personal") && existsSync(proposed)) {
     const mine = join(TARGET, "CLAUDE.md");
-    if (!existsSync(mine)) { if (!DRY) copyFileSync(proposed, mine); log("+", "CLAUDE.md (personal)"); }
+    if (!existsSync(mine)) { if (!IS_DRY_RUN) copyFileSync(proposed, mine); log("+", "CLAUDE.md (personal)"); }
     else if (!readFileSync(proposed).equals(readFileSync(mine))) {
-      if (!DRY) copyFileSync(proposed, join(TARGET, "CLAUDE.md.from-kit"));
+      if (!IS_DRY_RUN) copyFileSync(proposed, join(TARGET, "CLAUDE.md.from-kit"));
       log("!", "CLAUDE.md exists and differs; the kit's version is in CLAUDE.md.from-kit");
     }
   }
@@ -290,11 +297,18 @@ const install = () => {
     installedAt: new Date().toISOString(), statusLine: previous?.statusLine ?? null, files: manifestFiles };
   for (const rel of conflicts) log("✖", `${rel} exists and is not the kit's; left untouched (--force takes it over, after a backup)`);
   log(conflicts.length ? "!" : "✔",
-    `${DRY ? "dry run: would write" : "wrote"} ${written}, unchanged ${unchanged}, removed ${stale.length}, conflicts ${conflicts.length} → ${TARGET_POSIX}`);
+    `${IS_DRY_RUN ? "dry run: would write" : "wrote"} ${written}, unchanged ${unchanged}, removed ${stale.length}, conflicts ${conflicts.length} → ${TARGET_POSIX}`);
 
+  // The manifest goes first: if settings.json cannot be merged, the files written are still on record.
+  if (!IS_DRY_RUN) writeManifest(manifest);
   if (flag("apply-settings")) applySettings(manifest);
-  else log("·", "settings.json untouched; hooks are off until --apply-settings merges them (backup and diff first)");
-  if (!DRY) writeManifest(manifest);
+  else {
+    log("·", "settings.json untouched; hooks are off until --apply-settings merges them (backup and diff first)");
+    if (stale.some((rel) => rel.startsWith("hooks/tv/")))
+      log("!", "a kit hook script was removed; run with --apply-settings so settings.json stops calling it");
+  }
+  // Again after the merge, which records the status line the kit now owns.
+  if (!IS_DRY_RUN) writeManifest(manifest);
 
   const isMcpFailed = flag("with-mcp") && !installMcp();
   return conflicts.length || isMcpFailed ? 1 : 0;
@@ -305,7 +319,7 @@ const installMcp = () => {
   const mcp = readVendor()["chrome-devtools-mcp"];
   // `cmd /c` is how Windows starts a pnpm shim from Claude Code; elsewhere pnpm runs directly.
   const command = IS_WINDOWS ? mcp.install.command : mcp.install.command.replace(" cmd /c ", " ");
-  if (DRY) { log("·", `would run: ${command}`); return true; }
+  if (IS_DRY_RUN) { log("·", `would run: ${command}`); return true; }
   const result = spawnSync(command, { shell: true, encoding: "utf8", env: { ...process.env, ...mcp.install.env } });
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim().split("\n").pop() || result.error?.message || "no output";
   const isAdded = result.status === 0;
@@ -313,7 +327,7 @@ const installMcp = () => {
   return isAdded;
 };
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isRunDirectly(import.meta.url)) {
   try {
     preflight();
     process.exit(flag("uninstall") ? uninstall() : install());

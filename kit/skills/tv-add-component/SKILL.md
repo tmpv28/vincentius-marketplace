@@ -7,7 +7,7 @@ argument-hint: <Name> (the Component suffix is added)
 # Add a shared component
 
 A component in `src/commons/components/<Name>Component/` that knows nothing about the domain. Search
-first: if something close exists, extend it instead (00 #1).
+first: if something close exists, extend it instead (TV 00 #1).
 
 ## 1. Search, then read the reference
 

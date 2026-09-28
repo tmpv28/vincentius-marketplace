@@ -12,7 +12,7 @@ paths:
 
 TV-PACK: accessibility
 
-Loaded in full because a UI file was read. "TV NN" names the original chapter; docs/rules.md maps each chapter to its packs.
+Loaded in full because a UI file was read. "TV NN" names the original chapter; the chapter map at the end of the core names the packs of each chapter.
 Precedence: a pack beats the core where it is more specific. A collision means one side is stale: report it, do not work around it.
 
 ---
@@ -31,15 +31,15 @@ third-party library's own styles.
   dislikes the default, replace it, do not delete it.
 - **Every control has an accessible name.** An icon-only button gets `aria-label`; an input gets
   a `label` tied by `htmlFor`, not a placeholder standing in for one.
-- **A tooltip is not an accessible name.** The disabled-control rule from the validation section
-  says the reason must be visible; it must also be reachable, which means the reason goes on the
+- **A tooltip is not an accessible name.** The disabled-control rule (validation objects, TV 04, react
+  pack) says the reason must be visible; it must also be reachable, which means the reason goes on the
   control via `aria-describedby` or `title`, not only in a hover-only layer.
 - **A modal traps focus while open and returns it to the trigger on close.** This is the one
   thing a shared `GenericModalComponent` must get right, because every feature inherits it.
 - **Disabled versus `aria-disabled`.** A truly unavailable control is `disabled`. A control that
   is blocked by validation the user can fix stays focusable with `aria-disabled`, so a keyboard
   user can reach it and read why.
-- Airbnb ships `jsx-a11y` and this standard turns off four of its rules
+- `jsx-a11y` recommended enables these, and this standard turns off four of its rules
   (`no-autofocus`, `label-has-associated-control`, `no-static-element-interactions`,
   `click-events-have-key-events`). Each of those is a rule you are now enforcing by hand. Turning
   one off is a decision to do its job yourself, not a decision that its job does not matter.

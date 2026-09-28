@@ -3,10 +3,10 @@
 //   node scripts/notices.mjs           rewrite THIRD_PARTY_NOTICES.md when it changed
 //   node scripts/notices.mjs --check   list drift and undescribed patches; exit 1 on any
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
-import { join, resolve, basename } from "node:path";
-import { pathToFileURL } from "node:url";
+import { join, basename } from "node:path";
 
 import { VENDOR, readVendor } from "./vendor-lib.mjs";
+import { isRunDirectly } from "./files.mjs";
 
 // Beside vendor/, so a scratch VENDOR_DIR carries its own notices file.
 export const NOTICES_FILE = join(VENDOR, "..", "THIRD_PARTY_NOTICES.md");
@@ -82,8 +82,7 @@ export const checkNotices = (vendor = readVendor(), noticesFile = NOTICES_FILE) 
 };
 
 // ─── Main ───────────────────────────────────────────────────
-const isCli = process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
-if (isCli) {
+if (isRunDirectly(import.meta.url)) {
   const vendor = readVendor();
   if (process.argv.includes("--check")) {
     const problems = checkNotices(vendor);
