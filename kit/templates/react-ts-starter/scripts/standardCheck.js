@@ -325,21 +325,30 @@ if (conflicts) {
 
 // ─── Step 0b: Em-dashes in code-adjacent text ─────────────
 
-// 00 #5 is a non-negotiable, so it is a gate here rather than a notice. Built from its char code
+// TV 00 #5 is a non-negotiable, so it is a gate here rather than a notice. Built from its char code
 // so this file does not trip its own check.
 const EM_DASH = String.fromCharCode(0x2014);
 const CODE_ADJACENT_PATTERN = /\.(tsx?|jsx?|mjs|cjs|s?css|html)$/;
 
-const emDashHits = collectFiles("src")
-  .filter((filePath) => CODE_ADJACENT_PATTERN.test(filePath))
-  .flatMap((filePath) =>
-    readFileSync(filePath, "utf-8")
-      .split("\n")
-      .map((line, index) =>
-        line.includes(EM_DASH) ? `${filePath.replace(/\\/g, "/")}:${index + 1}` : null
-      )
-      .filter(Boolean)
-  );
+// The rule covers every code-adjacent file, so the tooling and the root configs are scanned too;
+// the root is read one level deep, because below it only these folders hold code.
+const EM_DASH_SCANNED_FILES = [
+  ...collectFiles("src"),
+  ...collectFiles("scripts"),
+  ...collectFiles(".storybook"),
+  ...readdirSync(".").filter((entry) => statSync(entry).isFile())
+];
+
+const emDashHits = EM_DASH_SCANNED_FILES.filter((filePath) =>
+  CODE_ADJACENT_PATTERN.test(filePath)
+).flatMap((filePath) =>
+  readFileSync(filePath, "utf-8")
+    .split("\n")
+    .map((line, index) =>
+      line.includes(EM_DASH) ? `${filePath.replace(/\\/g, "/")}:${index + 1}` : null
+    )
+    .filter(Boolean)
+);
 
 if (emDashHits.length > 0) {
   printStepHeader("Em-dash check...");

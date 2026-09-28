@@ -28,7 +28,8 @@ const LINTABLE_EXTENSIONS = [".js", ".jsx", ".ts", ".tsx"];
 const runGit = (args) => spawnSync("git", args, { encoding: "buffer", windowsHide: true });
 
 const getStagedPaths = () => {
-  const result = runGit(["diff", "--cached", "--name-only", "--diff-filter=d"]);
+  // -z, so a path git would otherwise quote (a space, a non-ASCII character) arrives verbatim.
+  const result = runGit(["diff", "--cached", "--name-only", "--diff-filter=d", "-z"]);
 
   // An empty list would read as "nothing staged, nothing to check" and let the commit through, so
   // a git that cannot answer stops the commit instead.
@@ -44,9 +45,8 @@ const getStagedPaths = () => {
 
   return result.stdout
     .toString("utf8")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    .split("\0")
+    .filter((path) => path.length > 0);
 };
 
 // The index copy, byte for byte. Buffer rather than string so a line-ending difference is one.
@@ -85,10 +85,7 @@ const isEslintClean = async (path, source) => {
   return !report || report.output === undefined;
 };
 
-const isStagedCopyClean = async (path) => {
-  const stagedContent = readStagedContent(path);
-  if (stagedContent === null) return true;
-
+const isStagedCopyClean = async ({ path, stagedContent }) => {
   const workingTreeContent = readWorkingTreeContent(path);
   if (workingTreeContent !== null && stagedContent.equals(workingTreeContent)) return true;
 
@@ -98,9 +95,31 @@ const isStagedCopyClean = async (path) => {
 
 // ─── Main ──────────────────────────────────────────────────
 
-const stagedPaths = getStagedPaths();
-const cleanliness = await Promise.all(stagedPaths.map((path) => isStagedCopyClean(path)));
-const unformattedStagedFiles = stagedPaths.filter((path, index) => !cleanliness[index]);
+const stagedFiles = getStagedPaths().map((path) => ({
+  path,
+  stagedContent: readStagedContent(path)
+}));
+
+// A staged copy that cannot be read has not been checked, and an unchecked file is not a clean
+// one: passing it would let the commit carry exactly the content this hook exists to inspect.
+const unreadableStagedFiles = stagedFiles.filter(({ stagedContent }) => stagedContent === null);
+
+if (unreadableStagedFiles.length > 0) {
+  console.log("");
+  console.log("  Commit blocked. These staged files could not be read from the index:");
+  console.log("");
+  unreadableStagedFiles.forEach(({ path }) => console.log(`    ${path}`));
+  console.log("");
+  console.log("  Nothing about them was checked. Run `git show :<path>` on one to see why.");
+  process.exit(1);
+}
+
+const cleanliness = await Promise.all(
+  stagedFiles.map((stagedFile) => isStagedCopyClean(stagedFile))
+);
+const unformattedStagedFiles = stagedFiles
+  .filter((_stagedFile, index) => !cleanliness[index])
+  .map(({ path }) => path);
 
 if (unformattedStagedFiles.length > 0) {
   console.log("");

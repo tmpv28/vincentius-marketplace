@@ -9,7 +9,7 @@ const preview: Preview = {
     // property is defined and a theme change here follows _colorStatics.scss.
     backgrounds: {
       default: "app",
-      values: [{ name: "app", value: "rgb(var(--color-black))" }]
+      values: [{ name: "app", value: "rgb(var(--color-surface-base))" }]
     }
   }
 };

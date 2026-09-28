@@ -6,8 +6,11 @@ import { isUndefined } from "../../../../commons/utils/typeChecks/isSpecificType
 // Deliberately NOT isNullOrEmpty: that treats [], {} and "   " as empty too, which would make
 // "clear the tag list" unsendable and would silently drop a File, a Blob or a FormData value,
 // none of which have own enumerable keys.
-export const removeEmptyPayloadProperties = <T extends Record<string, any>>(payload: T): T =>
-  Object.entries(payload).reduce((accumulator, [key, value]) => {
-    if (value === null || isUndefined(value) || value === "") return accumulator;
-    return { ...accumulator, [key]: value };
-  }, {} as T);
+// Partial<T>, because a stripped key is absent and the type has to say so.
+export const removeEmptyPayloadProperties = <T extends Record<string, any>>(
+  payload: T
+): Partial<T> =>
+  Object.entries(payload).reduce<Partial<T>>((cleanedPayload, [key, value]) => {
+    if (value === null || isUndefined(value) || value === "") return cleanedPayload;
+    return { ...cleanedPayload, [key]: value };
+  }, {});

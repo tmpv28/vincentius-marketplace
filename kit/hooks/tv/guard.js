@@ -29,8 +29,10 @@ const UNTRACKED_NPMRC = ".npmrc (untracked)";
 const PUBLIC_KEY = /\.pub$/;
 const ENV_FILE = /^\.env(?:\.([^.]+)(?:\..*)?)?$/;
 // src/lib/.env.ts and .env.d.ts are source code about the environment, not environment files. Data
-// formats in the code list stay secrets: a .env.json or .env.yml can hold the same values.
-const isEnvSourceCode = (baseName) => CODE_ADJACENT_FILE.test(baseName) && !/\.(json|ya?ml|sh|ps1)$/i.test(baseName);
+// formats in the code list stay secrets: a .env.json or .env.yml can hold the same values. Prose
+// about the environment (docs/.env.md, .env.txt notes) is not an environment file either.
+const isEnvSourceCode = (baseName) =>
+  (CODE_ADJACENT_FILE.test(baseName) && !/\.(json|ya?ml|sh|ps1)$/i.test(baseName)) || /\.(md|txt)$/i.test(baseName);
 const SCHEMA_SUFFIXES = new Set(["example", "sample", "template", "dist", "defaults"]);
 const GLOB = /[*?[{]/;
 
@@ -174,6 +176,7 @@ const CREATE_COMMANDS = new Set([
   "mv", "move-item", "mi", "move",
   "code", "cursor", "notepad",
   "chmod", "chown", "icacls", "attrib",
+  "wc",
   "ssh-keygen"
 ]);
 // Cmdlets that shape a listing's objects without opening the files behind them.
@@ -437,7 +440,7 @@ const pathOperands = (args) => {
     const word = args[index];
     const option = /^-(path|literalpath|destination|filepath)(?::(.*))?$/i.exec(word);
     if (option) named[option[1].toLowerCase() === "destination" ? "destination" : "source"] = option[2] ?? args[++index];
-    else if (COMMON_PARAMETERS_WITH_VALUE.test(word)) index++;
+    else if (COMMON_PARAMETERS_WITH_VALUE.test(word) || CONTENT_OPTIONS_WITH_VALUE.test(word) || /^-width$/i.test(word)) index++;
     else if (!word.startsWith("-")) positional.push(word);
   }
   return { named, positional };
@@ -491,6 +494,22 @@ const isPropertyProjection = (consumerName, consumer, scriptBlockOf) => {
 };
 
 // downstream is every command this one pipes into, in order: [] when nothing reads its output.
+const FILE_WRITERS = new Set(["set-content", "sc", "add-content", "ac", "out-file"]);
+const APPENDING_WRITERS = new Set(["add-content", "ac"]);
+// The file a writer names: -Path/-LiteralPath/-FilePath, or the first positional argument.
+const writeTargetOf = (args) => {
+  const { named, positional } = pathOperands(args);
+  return named.source ?? positional[0] ?? null;
+};
+
+// Writing a file that does not exist yet exposes nothing (as the Write tool's rule), and appending
+// to a project .npmrc adds a setting without reading the file. Overwriting an existing secret does not
+// qualify, and neither does appending to a .env file, which holds nothing but secrets.
+const isWritable = (target, cwd, isAppending, isWhitespaceSplit) => {
+  if (!fs.existsSync(path.resolve(cwd, toNativePath(target.replace(HOME_TOKEN, HOME_PATH))))) return true;
+  return isAppending && findSecretIn(target, cwd, false, isWhitespaceSplit) === UNTRACKED_NPMRC;
+};
+
 // scriptBlockOf(consumer) is the { } block a consumer runs, when that block is one command, else null.
 const findSecretInCommand = (command, masked, cwd, dialect, downstream, scriptBlockOf) => {
   const values = command.words.map((word) => word.value);
@@ -520,16 +539,24 @@ const findSecretInCommand = (command, masked, cwd, dialect, downstream, scriptBl
   const isNonReading = NON_READING_COMMANDS.has(name) || isLiteralOutput || (git !== null && NON_READING_GIT.has(git.subcommand));
   const unreadIndexes = unreadWordIndexes(values, name, args, commandIndex, git);
   const contentIndexes = CONTENT_WRITERS.has(name) ? contentValueIndexes(args).map((index) => commandIndex + 1 + index) : [];
+  // Set-Content, Add-Content and Out-File name the file they write; Add-Content and Out-File -Append append.
+  const writeTarget = FILE_WRITERS.has(name) ? writeTargetOf(args) : null;
+  const writeTargetIndex = writeTarget === null ? -1 : command.words.findIndex((word, index) => index > commandIndex && word.value === writeTarget);
+  const isAppending = APPENDING_WRITERS.has(name) || (name === "out-file" && args.some((word) => /^-append$/i.test(word)));
   for (const [index, word] of command.words.entries()) {
     if (isTouchOnly || masked.has(word) || unreadIndexes.includes(index)) continue;
+    if (index === writeTargetIndex) {
+      if (isWritable(word.value, cwd, isAppending, !word.isQuoted)) continue;
+      return findSecretIn(word.value, cwd, false, !word.isQuoted);
+    }
     const secret = findSecretIn(word.value, cwd, isNonReading || contentIndexes.includes(index), !word.isQuoted);
     if (secret) return secret;
   }
   // Redirections always touch the file, whatever the command: echo x > .env.local overwrites a secret.
-  // The exception: >> on a project .npmrc appends a setting (auto-install-peers=true) and reads nothing.
   for (const redirect of command.redirects.filter((candidate) => FILE_REDIRECTS.has(candidate.operator))) {
+    if (isWritable(redirect.target.value, cwd, redirect.operator === ">>", !redirect.target.isQuoted)) continue;
     const secret = findSecretIn(redirect.target.value, cwd, false, !redirect.target.isQuoted);
-    if (secret && !(redirect.operator === ">>" && secret === UNTRACKED_NPMRC)) return secret;
+    if (secret) return secret;
   }
   return null;
 };

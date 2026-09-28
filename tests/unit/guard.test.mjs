@@ -1,12 +1,16 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { runHook, isDenied, makeTempDir, makeEnvRepo, REPO, BACKSLASH as B } from "./helpers.mjs";
 
 const plainDir = makeTempDir("guard");
+// A folder whose .env.local and untracked .npmrc already exist, for the overwrite and append rules.
+const existingSecrets = makeTempDir("guard-existing");
+writeFileSync(join(existingSecrets, ".env.local"), "KEY=real\n");
+writeFileSync(join(existingSecrets, ".npmrc"), "//registry.npmjs.org/:_authToken=secret\n");
 const trackedRepo = makeEnvRepo(true);
 const untrackedRepo = makeEnvRepo(false);
 
@@ -167,7 +171,8 @@ const POWERSHELL = [
   ["PowerShell", { command: "Write-Output 'copy .env.example to .env.local'" }, "allow"],
   ["PowerShell", { command: "'.env.local' >> .gitignore" }, "allow"],
   ["PowerShell", { command: "Get-Content .env.local" }, "deny"],
-  ["PowerShell", { command: "Set-Content -Path .env.local -Value 'KEY=1'" }, "deny"],
+  // Pass 11: no .env.local exists here, so this creates one; overwriting is covered below.
+  ["PowerShell", { command: "Set-Content -Path .env.local -Value 'KEY=1'" }, "allow"],
   ["Bash", { command: 'cat "config/.env.local and more"' }, "deny"]
 ];
 
@@ -249,7 +254,8 @@ const NON_READING = [
   ["Bash", { command: "test -f .env && cat .env" }, "deny"],
   ["Bash", { command: "echo $(cat .env)" }, "deny"],
   ["Bash", { command: 'echo "$(cat .env.local)"' }, "deny"],
-  ["Bash", { command: "echo KEY=1 > .env.local" }, "deny"],
+  // Pass 11: no .env.local exists here, so this creates one; overwriting is covered below.
+  ["Bash", { command: "echo KEY=1 > .env.local" }, "allow"],
   ["Bash", { command: 'git commit -m "$(cat .env.local)"' }, "deny"],
   ["Bash", { command: "grep -e KEY .env.local" }, "deny"]
 ];
@@ -288,6 +294,40 @@ describe("guard.js", () => {
   describe("when another credential file is named", () => runCases(MORE_SECRETS));
   describe("when PowerShell writes, tests or quotes a file name", () => runCases(POWERSHELL));
   describe("when a string is an argument, a pattern or code rather than a command", () => runCases(PASS_FOUR));
+
+  // Pass 11: creating a file exposes nothing and appending to a project .npmrc reads nothing, but an
+  // existing secret may not be overwritten, and a .env file may not be appended to.
+  describe("when a write targets a secret that already exists", () => {
+    const WRITES = [
+      ["Bash", "echo KEY=1 > .env.local", "deny"],
+      ["Bash", "echo KEY=1 >> .env.local", "deny"],
+      ["PowerShell", "Set-Content -Path .env.local -Value 'KEY=1'", "deny"],
+      ["PowerShell", "Add-Content .env.local 'KEY=1'", "deny"],
+      ["PowerShell", "'KEY=1' | Out-File -Append .env.local", "deny"],
+      ["Bash", "echo 'auto-install-peers=true' > .npmrc", "deny"],
+      ["PowerShell", "Set-Content .npmrc 'auto-install-peers=true'", "deny"],
+      ["PowerShell", "Add-Content .npmrc 'auto-install-peers=true'", "allow"],
+      ["PowerShell", "'auto-install-peers=true' | Out-File -Append .npmrc", "allow"],
+      ["Bash", "echo 'auto-install-peers=true' >> .npmrc", "allow"]
+    ];
+    for (const [tool, command, expected] of WRITES)
+      it(`${verb(expected)} ${tool} ${JSON.stringify(command)}`, () => assert.equal(check(existingSecrets, tool, { command }), expected === "deny"));
+  });
+
+  describe("when a write creates a file that does not exist yet", () => {
+    const CREATES = [
+      ["Bash", "echo 'auto-install-peers=true' > .npmrc"],
+      ["PowerShell", "Set-Content .npmrc 'auto-install-peers=true'"],
+      ["PowerShell", "'auto-install-peers=true' | Out-File -Encoding utf8 .npmrc"],
+      ["PowerShell", "Add-Content .npmrc 'auto-install-peers=true'"],
+      ["Bash", "cat .env.example > .env.local"]
+    ];
+    for (const [tool, command] of CREATES)
+      it(`allows ${tool} ${JSON.stringify(command)}`, () => assert.equal(check(plainDir, tool, { command }), false));
+  });
+
+  it("reads docs/.env.md as prose, not as an environment file", () =>
+    assert.equal(check(plainDir, "Read", { file_path: join(plainDir, "docs", ".env.md") }), false));
 
   describe("when the .env is committed (a schema, TV 00 #7)", () => {
     it("allows reading it", () => assert.equal(check(trackedRepo, "Bash", { command: "cat .env" }), false));

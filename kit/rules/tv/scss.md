@@ -88,6 +88,7 @@ a JSON file:
 | `scss/load-partial-extension`, `scss/load-no-partial-leading-underscore` | `@forward` paths are written in full, same reason there are no barrels and no aliases: the path is the truth |
 | `scss/dollar-variable-pattern`, `scss/at-mixin-pattern`, `scss/at-function-pattern`, `function-name-case` | `$color_snake_case`, `@mixin display_flex_column`, `themeRgba()` |
 | `selector-class-pattern` | PascalCase blocks, snake_case utilities |
+| `comment-empty-line-before`, `scss/double-slash-comment-whitespace-inside` | The `//-----------` separators sit flush against the block they divide and carry no inner space |
 | `comment-whitespace-inside` | The `/*------| BANNER |------*/` form |
 | `declaration-block-no-redundant-longhand-properties` | A layout mixin states each property explicitly so a consumer can override one of them |
 | `no-descending-specificity` | Modifier nesting inside a block produces this constantly and it is never the actual problem |

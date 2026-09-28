@@ -181,5 +181,11 @@ Recorded as they happen, in the shape: what was wrong, what was checked, what is
   list holding a different item; pairs are now remembered only during their own comparison. Configs
   (vite, vitest setup, storybook) type-checked and linted by the gate; Button gains ariaLabel. Rules:
   lazy-fetch naming is for paged lists; a one-call list read is a plain read.
+- Pass 11: hooks clean (first of two after the pass-10 reset); small optionals applied (creating a
+  missing file allowed, Add-Content appends, wc, .env.md); corpus 2335 tests. Rules and template not
+  clean: the modal had no accessible name (Mantine names the dialog only through Modal.Title), the
+  payload cleaner typed stripped keys as present, the promised single place for `{id}` interpolation
+  did not exist (now interpolateEndpointUrl, tested, used by a new useDeleteNote), a sentence-named
+  top-level describe. The template's em-dash gate now covers scripts/ and root configs.
 - Phase 7 item: pnpm warns of an unmet peer from eslint-plugin-unused-imports@4.4.1 (it pulls
   @typescript-eslint/eslint-plugin@7, which wants ESLint 8); not caused by the removals.

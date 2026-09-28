@@ -1,4 +1,4 @@
-import React, { useId } from "react";
+import React from "react";
 import { Modal } from "@mantine/core";
 
 import LoadingSkeletonComponent from "../LoadingSkeletonComponent/LoadingSkeletonComponent";
@@ -35,58 +35,62 @@ const GenericModalComponent: React.FC<GenericModalComponentType> = ({
     footer: `GenericModalComponent__footer ${customClassNames.footer || ""}`
   };
 
-  const titleId = `${useId()}-title`;
-
   //-----------
 
   // No `if (!isOpen) return null` here: Mantine's Modal already unmounts its content while closed,
   // which is the overlay mount contract that guard exists to enforce.
+  //
+  // Composed from the Modal parts rather than <Modal>, because the dialog's accessible name only
+  // exists when Modal.Title mounts: Mantine then points the role="dialog" element's
+  // aria-labelledby at it, and overwrites any aria-labelledby passed in by hand.
   return (
-    <Modal
+    <Modal.Root
       opened={isGenericModalOpen}
       onClose={onClose}
       centered
-      withCloseButton={false}
-      aria-labelledby={isNullOrEmpty(title) ? undefined : titleId}
       className={classNames.rootContainer}
     >
-      <div className={classNames.content} style={styleConfigs}>
-        <div className={classNames.header}>
-          {!isNullOrEmpty(title) && (
-            <h2 id={titleId} className={classNames.title}>
-              {title}
-            </h2>
-          )}
+      <Modal.Overlay />
 
-          {!isNullOrEmpty(subtitle) && <p className={classNames.subtitle}>{subtitle}</p>}
-        </div>
+      <Modal.Content>
+        <Modal.Body>
+          <div className={classNames.content} style={styleConfigs}>
+            <div className={classNames.header}>
+              {!isNullOrEmpty(title) && (
+                <Modal.Title className={classNames.title}>{title}</Modal.Title>
+              )}
 
-        <div className={classNames.body}>
-          {isLoading ? <LoadingSkeletonComponent rowsCount={2} /> : children}
-        </div>
+              {!isNullOrEmpty(subtitle) && <p className={classNames.subtitle}>{subtitle}</p>}
+            </div>
 
-        <div className={classNames.footer}>
-          <ButtonComponent
-            styleType={buttonStyleTypes.transparentWithBorder}
-            disabled={cancelationButtonConfig.disabled}
-            tooltipTitle={cancelationButtonConfig.tooltipTitle}
-            onClickAction={cancelationButtonConfig.onClickAction || onClose}
-          >
-            {cancelationButtonConfig.label || "Cancel"}
-          </ButtonComponent>
+            <div className={classNames.body}>
+              {isLoading ? <LoadingSkeletonComponent rowsCount={2} /> : children}
+            </div>
 
-          <ButtonComponent
-            styleType={buttonStyleTypes.accent}
-            isLoading={isLoading}
-            disabled={confirmationButtonConfig.disabled}
-            tooltipTitle={confirmationButtonConfig.tooltipTitle}
-            onClickAction={confirmationButtonConfig.onClickAction || emptyOnClick}
-          >
-            {confirmationButtonConfig.label || "Confirm"}
-          </ButtonComponent>
-        </div>
-      </div>
-    </Modal>
+            <div className={classNames.footer}>
+              <ButtonComponent
+                styleType={buttonStyleTypes.transparentWithBorder}
+                disabled={cancelationButtonConfig.disabled}
+                tooltipTitle={cancelationButtonConfig.tooltipTitle}
+                onClickAction={cancelationButtonConfig.onClickAction || onClose}
+              >
+                {cancelationButtonConfig.label || "Cancel"}
+              </ButtonComponent>
+
+              <ButtonComponent
+                styleType={buttonStyleTypes.accent}
+                isLoading={isLoading}
+                disabled={confirmationButtonConfig.disabled}
+                tooltipTitle={confirmationButtonConfig.tooltipTitle}
+                onClickAction={confirmationButtonConfig.onClickAction || emptyOnClick}
+              >
+                {confirmationButtonConfig.label || "Confirm"}
+              </ButtonComponent>
+            </div>
+          </div>
+        </Modal.Body>
+      </Modal.Content>
+    </Modal.Root>
   );
 };
 

@@ -141,5 +141,8 @@ real page with no backend configured. Nothing fakes a request. When a server exi
 3. Replace the local append in `AddNoteFeature.addNoteHandler` with `useAddNote` from
    `api/queries/notes/create/endpointCalls`, and remove that handler's `createSuccessfulToast`
    call: `useAddNote` already toasts on success, so keeping it shows two toasts.
+4. Replace the local removal in `DeleteNoteFeature.deleteNoteHandler` with `useDeleteNote` from
+   `api/queries/notes/delete/endpointCalls`, and remove its `createSuccessfulToast` call for the
+   same reason.
 
 Then delete `demoNotesDefinition.ts`.

@@ -72,6 +72,26 @@ describe("areEqual", () => {
     ];
     expect(areEqual(rowsSharingAuthor, rowsWithDifferentAuthors)).toBe(false);
   });
+
+  it("normalizes dates inside array entries, not just at the top level", () => {
+    expect(areEqual([{ d: "2026-01-01T09:30:10.100Z" }], [{ d: "2026-01-01T09:30:10.900Z" }])).toBe(
+      true
+    );
+  });
+
+  describe("with non-plain objects", () => {
+    it("does not call two different Sets equal just because neither has own keys", () => {
+      expect(areEqual(new Set([1, 2, 3]), new Set())).toBe(false);
+    });
+
+    it("does not call two different Errors equal", () => {
+      expect(areEqual(new Error("a"), new Error("b"))).toBe(false);
+    });
+
+    it("does not call two different RegExps equal", () => {
+      expect(areEqual(/abc/, /xyz/)).toBe(false);
+    });
+  });
 });
 
 describe("areNotEqual", () => {
@@ -115,24 +135,4 @@ describe("areEqualInOrder", () => {
     expect(areEqualInOrder(inOrderA, inOrderB)).toBe(true);
     expect(areEqualInOrder(inOrderA, reordered)).toBe(false);
   }, 2000);
-});
-
-describe("areEqual with non-plain objects", () => {
-  it("does not call two different Sets equal just because neither has own keys", () => {
-    expect(areEqual(new Set([1, 2, 3]), new Set())).toBe(false);
-  });
-
-  it("does not call two different Errors equal", () => {
-    expect(areEqual(new Error("a"), new Error("b"))).toBe(false);
-  });
-
-  it("does not call two different RegExps equal", () => {
-    expect(areEqual(/abc/, /xyz/)).toBe(false);
-  });
-
-  it("normalizes dates inside array entries, not just at the top level", () => {
-    expect(areEqual([{ d: "2026-01-01T09:30:10.100Z" }], [{ d: "2026-01-01T09:30:10.900Z" }])).toBe(
-      true
-    );
-  });
 });

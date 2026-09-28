@@ -38,7 +38,7 @@ it is the fix.
 **Where something genuinely has to be mounted, it goes through a local harness**, not a library.
 Re-render identity, tri-state transitions, controlled-input round-trips: these are real behaviours
 that do not decompose into a pure function, and about a third of my test files do mount for them.
-The harness is thirty lines; create it as `commons/testUtils/renderIntoContainer.tsx` the first time a test
+The harness is thirty lines in `commons/testUtils/renderIntoContainer.tsx`; a project without it creates it the first time a test
 needs it:
 
 ```typescript

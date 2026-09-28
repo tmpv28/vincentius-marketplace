@@ -660,8 +660,8 @@ optional argument stops being a breaking change.
 - `const` arrow functions by default. `function` for three cases: overloaded functions,
   hoisting-dependent helpers, and **type predicates**, which read better as declarations and are
   often referenced above their definition inside a `modules/` file of related checks.
-- Named exports by default. Default export only for a component, feature, page, or a controller
-  hook, where the file **is** the thing.
+- Named exports by default. Default export only for a component, feature, page, a controller hook
+  or a validation hook, where the file **is** the thing.
 - Destructure at the parameter, with defaults inline:
 
 ```typescript

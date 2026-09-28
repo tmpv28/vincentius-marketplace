@@ -47,7 +47,7 @@ anything is called done.
 ## What is in the box
 
 - The full API layer: services, CRUD controllers, response-action handling and a worked
-  `notes` entity with create and read endpoints.
+  `notes` entity with create, read and delete endpoints.
 - `responseObjectSystem`: one vocabulary for "did this work and why not", with an overloaded
   factory and a runtime brand that survives serialisation.
 - The hand-written type-check kernel: `isSpecificType`, `isNullOrEmpty`, `areEqual`.

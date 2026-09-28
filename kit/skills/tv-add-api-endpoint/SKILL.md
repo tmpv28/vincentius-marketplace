@@ -24,6 +24,8 @@ The reference is the one the project's `CLAUDE.md` names, else the template at
 ## 2. Write it
 
 - The URL goes into `endpointsDefinition.ts`, never into `endpointCalls.ts`: zero URL literals there, ever.
+  A path parameter stays a `{param}` placeholder and is filled with `interpolateEndpointUrl` from
+  `src/api/configs/modules/utils.ts`, as `delete/endpointCalls.ts` does for `/notes/{id}`.
 - `endpointTypes.ts` holds the `API_`-prefixed wire types; `endpointCalls.ts` exports `use<Operation><Entity>`
   returning a memoised `{ API_<Operation><Entity>, isLoading }`.
 - Mutations: payload cleaned before sending; validation in `validateRequiredPayloadData.ts` returning a response

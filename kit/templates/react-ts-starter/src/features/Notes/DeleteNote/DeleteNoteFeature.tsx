@@ -22,8 +22,8 @@ const DeleteNoteFeature: React.FC<DeleteNoteFeatureType> = ({
 
   //-----------
 
-  // The demo removes locally. Once a backend exists, this body becomes a useDeleteNote call, added
-  // under api/queries/notes/delete with tv-add-api-endpoint.
+  // The demo removes locally. useDeleteNote in api/queries/notes/delete is the call to swap this
+  // body for once a backend exists; it toasts on success, so this toast goes with the swap.
   const deleteNoteHandler = useCallback(() => {
     if (!deleteNoteButtonsValidationResponseObj.deleteNote.status) return;
 

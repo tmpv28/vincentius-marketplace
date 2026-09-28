@@ -11,7 +11,7 @@ Work top to bottom. Nothing here is optional.
       `"React with TypeScript | <one line on what this is>"`.
 - [ ] Change `<title>` in `index.html`.
 - [ ] Pick the accent colour in `scripts/branding.js` and `src/resources/styles/variables/colors/_colorStatics.scss`.
-- [ ] `pnpm install`.
+- [ ] `pnpm install --frozen-lockfile`.
 - [ ] `pnpm std:check` passes on the untouched template before you write anything.
 
 If the project is not React, use the framework's official scaffolder (`uv init`, `cargo new`,

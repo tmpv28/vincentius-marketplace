@@ -145,7 +145,7 @@ export default typescriptEslint.config(
         }
       ],
 
-      // jsx-a11y ships these on and 04 turns them off. Each one is a decision to do its job by
+      // jsx-a11y ships these on and TV 04 turns them off. Each one is a decision to do its job by
       // hand, not a decision that its job does not matter.
       "jsx-a11y/no-autofocus": "off",
       "jsx-a11y/label-has-associated-control": "off",

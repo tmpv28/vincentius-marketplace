@@ -13,8 +13,14 @@
     gap: 4px;
   }
 
+  // Rendered through Modal.Title so the dialog is named by it, and that class resets the heading's
+  // type; these restate the h2 rules in text.scss so the title still reads as the page's h2.
   &__title {
     color: $color_text_primary;
+
+    font-weight: $font_weight_bold !important;
+    font-size: 18px !important;
+    line-height: 24px !important;
   }
 
   &__subtitle {
